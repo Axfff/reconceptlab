@@ -1,0 +1,88 @@
+---
+id: bfs
+locale: zh
+title: 广度优先搜索
+summary: 从起点像波纹一样向外扩张，在无权图中找到按边数计算的最短路径。
+status: draft
+translationStatus: needs-review
+difficulty: beginner
+conceptType: algorithm
+tags:
+  - graphs
+  - algorithms
+prerequisites:
+  - graph-basics
+next:
+  - dijkstra
+createdAt: 2026-05-15
+updatedAt: 2026-05-15
+---
+
+import QueueWaveDemo from "../../../components/interactive/QueueWaveDemo";
+
+## 问题从哪里来
+
+假设每条走廊穿过去的代价都一样。从一个起点房间出发，哪些房间距离 1 步，哪些距离 2 步，哪些距离 3 步？
+
+## 第一个朴素想法
+
+可以沿着一条路一直走到尽头，再退回来试别的路。这样确实能找到房间，但可能先跑得很远，反而漏掉近处还没检查的房间。
+
+## 它为什么会痛
+
+如果目标是边数最少的路径，深度优先式的乱走不能保证距离顺序。一个很远的节点可能比近处节点更早被发现。
+
+## 核心发明
+
+BFS 使用队列（queue）。一个节点被发现后，要排在已经等待的节点后面。这个先进先出规则让搜索按层向外扩张。
+
+## 互动可视化
+
+<QueueWaveDemo client:load lang="zh" />
+
+## 形式化版本
+
+广度优先搜索（breadth-first search）从源点开始，访问尚未发现的邻居，并按队列顺序处理节点。在无权图中，BFS 第一次发现某个节点时，对应路径就是按边数计算的最短路径。
+
+## 实现草图
+
+```ts
+function bfs(start: string, graph: Record<string, string[]>) {
+  const visited = new Set([start]);
+  const queue = [start];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    for (const neighbor of graph[node]) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return visited;
+}
+```
+
+## 正确性直觉
+
+队列不会让距离 2 的节点插到距离 1 的节点前面。更一般地说，节点离开队列的顺序不会让离起点更远的节点抢先。
+
+## 复杂度
+
+使用邻接表时，BFS 每个节点访问一次，每条边扫描一次，所以时间复杂度是 `O(V + E)`。队列和 visited 集合需要 `O(V)` 空间。
+
+## 常见混淆
+
+BFS 找到的是按边数计算的最短路径，不是按总权重计算的最短路径。如果边的代价不同，单纯的队列规则就不够了。
+
+## 图谱连接
+
+BFS 依赖图的基础。Dijkstra 算法保留"前沿（frontier）向外扩张"这个想法，但在带权边中改变了选择下一个节点的方式。
+
+## 预测练习
+
+1. 在演示中，为什么 `C` 会比 `D` 先扩张？
+2. 如果把队列换成栈（stack），顺序会发生什么变化？
+3. BFS 如果重复访问节点，还能保持同样的最短距离保证吗？

@@ -1,0 +1,64 @@
+---
+id: graph-basics
+locale: en
+title: Graph Basics
+summary: Model pairwise relationships with nodes, edges, and adjacency so algorithms can move through them.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: concept
+tags:
+  - graphs
+  - modeling
+prerequisites: []
+next:
+  - bfs
+createdAt: 2026-05-15
+updatedAt: 2026-05-15
+---
+
+## Hook problem
+
+Imagine you have a map of rooms connected by doors. You do not care about the shape of each room yet. You care about which rooms can be reached from which other rooms.
+
+## First naive idea
+
+You might write every possible route as a sentence: "from the lobby, go to the hall, then the lab." That works for one route, but it does not scale when the building changes.
+
+## Where it breaks
+
+If a new door appears, many route sentences may become outdated. The pain point is that routes mix the raw structure with decisions about how to travel.
+
+## The core invention
+
+A graph separates the structure from the search. A node represents an object, an edge represents a relationship, and adjacency records each node's immediate neighbors.
+
+## Interactive visual demo
+
+The first visual question is simple: from one node, which neighbors are directly available? Later algorithms use that same local view to build larger behavior.
+
+## Formal version
+
+A graph is usually written as `G = (V, E)`, where `V` is a set of vertices and `E` is a set of edges. An edge may be directed or undirected, weighted or unweighted.
+
+## Implementation sketch
+
+```ts
+const graph = {
+  lobby: ["hall", "stairs"],
+  hall: ["lobby", "lab"],
+  lab: ["hall"],
+  stairs: ["lobby"]
+};
+```
+
+This adjacency list is compact when each node only touches a few neighbors.
+
+## Connections in the graph
+
+BFS uses adjacency to ask one repeated question: which unvisited neighbors should enter the queue next?
+
+## Prediction questions
+
+1. If an edge is directed from `A` to `B`, can you always travel from `B` to `A`?
+2. Which representation is easier to update when one new edge is added: route sentences or an adjacency list?

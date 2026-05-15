@@ -1,0 +1,10 @@
+.DS_Store
+.astro/
+dist/
+node_modules/
+
+# Uploaded prompt package artifacts used to generate the site.
+cs_knowledge_graph_codex_prompt_package/
+cs_knowledge_graph_codex_prompt_package.zip
+
+npm-debug.log*

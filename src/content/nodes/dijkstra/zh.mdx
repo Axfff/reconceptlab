@@ -1,0 +1,46 @@
+---
+id: dijkstra
+locale: zh
+title: Dijkstra 算法
+summary: 在非负带权图中扩展前沿思想，每次先扩张当前已知代价最低的节点。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - graphs
+  - algorithms
+prerequisites:
+  - bfs
+next: []
+createdAt: 2026-05-15
+updatedAt: 2026-05-15
+---
+
+## 问题从哪里来
+
+BFS 只数边数，但道路常常有不同耗时。两条路组成的路径可能比一条路更快。
+
+## 第一个朴素想法
+
+仍然使用 BFS，把每条边都当成一样的代价。
+
+## 它为什么会痛
+
+当边权不同时，第一次发现的路径不一定总代价最低。
+
+## 核心发明
+
+保留前沿（frontier），但每次选择当前已知距离最小的未确定节点。优先队列（priority queue）让这个选择更高效。
+
+## 下一步要做的互动可视化
+
+学习者应该能逐步观察松弛（relaxation）过程，看暂定距离如何变化，并预测优先队列下一次会取出哪个节点。
+
+## 形式化版本
+
+Dijkstra 算法解决非负边权图上的单源最短路径问题。
+
+## 图谱连接
+
+Dijkstra 把 BFS 在等代价边上的前沿扩张，推广到非负带权边。

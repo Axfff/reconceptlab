@@ -1,0 +1,32 @@
+---
+import Layout from "../../components/Layout.astro";
+import NodeCard from "../../components/NodeCard.astro";
+import { localeCodes, type Locale } from "../../i18n/locales";
+import { t } from "../../i18n/ui";
+import { graphPath } from "../../lib/routes";
+import { getNodesByLocale } from "../../lib/content";
+
+export function getStaticPaths() {
+  return localeCodes.map((lang) => ({ params: { lang } }));
+}
+
+const lang = Astro.params.lang as Locale;
+const nodes = await getNodesByLocale(lang);
+---
+
+<Layout lang={lang} title={t(lang, "siteTitle")} description={t(lang, "siteDescription")}>
+  <section class="prose">
+    <h1>{t(lang, "siteTitle")}</h1>
+    <p class="summary">{t(lang, "siteDescription")}</p>
+    <p>
+      <a href={graphPath(lang)}>{t(lang, "graph")}</a>
+    </p>
+  </section>
+
+  <section aria-labelledby="concepts-title">
+    <h2 id="concepts-title">{t(lang, "concepts")}</h2>
+    <div class="grid">
+      {nodes.map((entry) => <NodeCard entry={entry} lang={lang} />)}
+    </div>
+  </section>
+</Layout>

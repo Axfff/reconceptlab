@@ -1,0 +1,316 @@
+---
+import Header from "./Header.astro";
+import { locales, type Locale } from "../i18n/locales";
+import { t } from "../i18n/ui";
+
+type Props = {
+  lang: Locale;
+  title?: string;
+  description?: string;
+  pathname?: string;
+  availableLocales?: Locale[];
+};
+
+const {
+  lang,
+  title = t(lang, "siteTitle"),
+  description = t(lang, "siteDescription"),
+  pathname = Astro.url.pathname,
+  availableLocales
+} = Astro.props;
+
+const pageTitle = title === t(lang, "siteTitle") ? title : `${title} | ${t(lang, "siteTitle")}`;
+---
+
+<!doctype html>
+<html lang={locales[lang].htmlLang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{pageTitle}</title>
+    {availableLocales?.map((locale) => (
+      <link rel="alternate" hreflang={locales[locale].htmlLang} href={new URL(pathname.replace(`/${lang}`, `/${locale}`), Astro.url).toString()} />
+    ))}
+  </head>
+  <body>
+    <Header lang={lang} pathname={pathname} availableLocales={availableLocales} />
+    <main class="page-shell">
+      <slot />
+    </main>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    color-scheme: light dark;
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-muted: #eef2f7;
+    --text: #172033;
+    --muted: #5e6a7d;
+    --line: #d8e0ec;
+    --accent: #0f766e;
+    --accent-strong: #115e59;
+    --warning: #a16207;
+    --radius: 8px;
+    font-family:
+      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+      sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111827;
+      --surface: #182132;
+      --surface-muted: #222e43;
+      --text: #f7fafc;
+      --muted: #b3becc;
+      --line: #344156;
+      --accent: #5eead4;
+      --accent-strong: #99f6e4;
+      --warning: #facc15;
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+  }
+
+  a {
+    color: var(--accent-strong);
+  }
+
+  button,
+  a {
+    outline-offset: 3px;
+  }
+
+  .page-shell {
+    width: min(1120px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 36px 0 64px;
+  }
+
+  .prose {
+    max-width: 760px;
+  }
+
+  .prose h1,
+  .prose h2,
+  .prose h3 {
+    line-height: 1.2;
+  }
+
+  .prose h1 {
+    font-size: clamp(2rem, 4vw, 3.75rem);
+    margin: 0 0 12px;
+  }
+
+  .prose h2 {
+    margin-top: 42px;
+  }
+
+  .summary {
+    color: var(--muted);
+    font-size: 1.1rem;
+  }
+
+  .surface {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .status {
+    color: var(--warning);
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  pre {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    padding: 16px;
+    background: #0f172a;
+    color: #e2e8f0;
+  }
+
+  .graph-explorer,
+  .queue-wave-demo {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    margin: 24px 0;
+    padding: 18px;
+  }
+
+  .graph-header h2,
+  .graph-list h2 {
+    margin: 0;
+  }
+
+  .graph-explorer svg {
+    display: block;
+    height: auto;
+    margin-top: 16px;
+    max-width: 100%;
+  }
+
+  .graph-explorer line {
+    stroke: var(--muted);
+    stroke-width: 2;
+  }
+
+  .graph-explorer marker path {
+    fill: var(--muted);
+  }
+
+  .graph-explorer text {
+    fill: var(--text);
+    font-size: 13px;
+    pointer-events: none;
+  }
+
+  .svg-node {
+    cursor: pointer;
+  }
+
+  .svg-node circle {
+    fill: var(--surface-muted);
+    stroke: var(--line);
+    stroke-width: 2;
+  }
+
+  .svg-node circle.selected,
+  .svg-node:focus circle {
+    fill: color-mix(in srgb, var(--accent) 18%, var(--surface));
+    stroke: var(--accent);
+    stroke-width: 4;
+  }
+
+  .graph-list {
+    border-top: 1px solid var(--line);
+    margin-top: 18px;
+    padding-top: 18px;
+  }
+
+  .graph-list li + li {
+    margin-top: 12px;
+  }
+
+  .graph-list p {
+    color: var(--muted);
+    margin: 4px 0 0;
+  }
+
+  .demo-grid {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: minmax(260px, 1fr) minmax(220px, 0.9fr);
+  }
+
+  .queue-wave-demo svg {
+    width: 100%;
+  }
+
+  .queue-wave-demo line {
+    stroke: var(--line);
+    stroke-width: 3;
+  }
+
+  .queue-wave-demo circle {
+    fill: var(--surface-muted);
+    stroke: var(--line);
+    stroke-width: 2;
+  }
+
+  .queue-wave-demo circle.visited {
+    fill: #bae6fd;
+    stroke: #0369a1;
+  }
+
+  .queue-wave-demo circle.queued {
+    fill: #fde68a;
+    stroke: #a16207;
+  }
+
+  .queue-wave-demo circle.current {
+    fill: #99f6e4;
+    stroke: #0f766e;
+    stroke-width: 4;
+  }
+
+  .queue-wave-demo text {
+    fill: #172033;
+    font-weight: 800;
+  }
+
+  .state-panel {
+    align-self: center;
+  }
+
+  .state-label {
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 800;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  .queue {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 16px 0;
+  }
+
+  .queue span {
+    background: var(--surface-muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 2px 10px;
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+  }
+
+  .controls button {
+    background: var(--accent);
+    border: 0;
+    border-radius: var(--radius);
+    color: var(--bg);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 800;
+    padding: 9px 14px;
+  }
+
+  .controls button + button {
+    background: var(--surface-muted);
+    border: 1px solid var(--line);
+    color: var(--text);
+  }
+
+  @media (max-width: 760px) {
+    .demo-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

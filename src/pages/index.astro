@@ -1,0 +1,19 @@
+---
+import { homePath } from "../lib/routes";
+import { defaultLocale } from "../i18n/locales";
+
+const target = homePath(defaultLocale);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content={`0; url=${target}`} />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CS Knowledge Graph</title>
+  </head>
+  <body>
+    <p><a href={target}>Continue to the English site</a></p>
+  </body>
+</html>

@@ -1,0 +1,86 @@
+---
+import { render } from "astro:content";
+import Layout from "../../../components/Layout.astro";
+import { graphNodes } from "../../../data/graph";
+import type { Locale } from "../../../i18n/locales";
+import { t } from "../../../i18n/ui";
+import { getAllNodeEntries, getAvailableNodeLocales, getNodeEntry } from "../../../lib/content";
+import { graphPath, nodePath } from "../../../lib/routes";
+
+export async function getStaticPaths() {
+  const entries = await getAllNodeEntries();
+  return entries.map((entry) => ({
+    params: {
+      lang: entry.data.locale,
+      id: entry.data.id
+    }
+  }));
+}
+
+const lang = Astro.params.lang as Locale;
+const id = Astro.params.id as string;
+const entry = await getNodeEntry(id, lang);
+
+if (!entry) {
+  return Astro.redirect(`/${lang}/`);
+}
+
+const availableLocales = await getAvailableNodeLocales(id);
+const { Content } = await render(entry);
+const graphNode = graphNodes.find((node) => node.id === id);
+---
+
+<Layout
+  lang={lang}
+  title={entry.data.title}
+  description={entry.data.summary}
+  pathname={nodePath(lang, id)}
+  availableLocales={availableLocales}
+>
+  <article class="prose">
+    <p class="status">{t(lang, entry.data.status)}</p>
+    <h1>{entry.data.title}</h1>
+    <p class="summary">{entry.data.summary}</p>
+    <dl class="meta-grid">
+      <div>
+        <dt>{t(lang, "prerequisites")}</dt>
+        <dd>{entry.data.prerequisites.length > 0 ? entry.data.prerequisites.join(", ") : t(lang, "none")}</dd>
+      </div>
+      <div>
+        <dt>{t(lang, "next")}</dt>
+        <dd>{entry.data.next.length > 0 ? entry.data.next.join(", ") : t(lang, "none")}</dd>
+      </div>
+    </dl>
+    <Content />
+    <p>
+      <a href={graphPath(lang)}>{t(lang, "graphConnections")}</a>
+      {graphNode ? `: ${graphNode.label[lang]}` : ""}
+    </p>
+  </article>
+</Layout>
+
+<style>
+  .meta-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    margin: 24px 0;
+  }
+
+  .meta-grid div {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 12px;
+  }
+
+  dt {
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 800;
+  }
+
+  dd {
+    margin: 4px 0 0;
+  }
+</style>

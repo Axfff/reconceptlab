@@ -1,0 +1,46 @@
+---
+id: dijkstra
+locale: en
+title: Dijkstra's Algorithm
+summary: Extend the frontier idea to nonnegative weighted graphs by expanding the cheapest known node first.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - graphs
+  - algorithms
+prerequisites:
+  - bfs
+next: []
+createdAt: 2026-05-15
+updatedAt: 2026-05-15
+---
+
+## Hook problem
+
+BFS counts edges, but roads often have different travel times. A two-road path can be faster than a one-road path.
+
+## First naive idea
+
+Try BFS anyway and treat every edge as equal.
+
+## Where it breaks
+
+The first discovered path is no longer guaranteed to be cheapest when edge weights differ.
+
+## The core invention
+
+Keep a frontier, but choose the unsettled node with the smallest known distance. A priority queue makes that choice efficient.
+
+## Interactive visual to build next
+
+Learners should step through edge relaxation, watch tentative distances change, and predict which node the priority queue will remove next.
+
+## Formal version
+
+Dijkstra's algorithm solves single-source shortest paths on graphs whose edge weights are nonnegative.
+
+## Connections in the graph
+
+Dijkstra generalizes the BFS frontier from equal-cost edges to nonnegative weighted edges.

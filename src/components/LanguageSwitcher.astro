@@ -1,0 +1,55 @@
+---
+import { localeCodes, locales, type Locale } from "../i18n/locales";
+import { localizedPath } from "../lib/routes";
+import { t } from "../i18n/ui";
+
+type Props = {
+  lang: Locale;
+  pathname: string;
+  availableLocales?: Locale[];
+};
+
+const { lang, pathname, availableLocales = localeCodes } = Astro.props;
+---
+
+<div class="switcher" aria-label={t(lang, "language")}>
+  {localeCodes.map((locale) => {
+    const enabled = availableLocales.includes(locale);
+    return enabled ? (
+      <a href={localizedPath(pathname, locale)} aria-current={locale === lang ? "true" : undefined}>
+        {locales[locale].label}
+      </a>
+    ) : (
+      <span aria-disabled="true">{locales[locale].label}</span>
+    );
+  })}
+</div>
+
+<style>
+  .switcher {
+    display: flex;
+    gap: 4px;
+  }
+
+  a,
+  span {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    display: inline-flex;
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 8px 10px;
+    text-decoration: none;
+  }
+
+  a[aria-current="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+  }
+
+  span {
+    opacity: 0.45;
+  }
+</style>

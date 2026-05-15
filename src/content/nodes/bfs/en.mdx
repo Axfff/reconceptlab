@@ -1,0 +1,88 @@
+---
+id: bfs
+locale: en
+title: Breadth-First Search
+summary: Find shortest paths in an unweighted graph by expanding from the start like a wave.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: algorithm
+tags:
+  - graphs
+  - algorithms
+prerequisites:
+  - graph-basics
+next:
+  - dijkstra
+createdAt: 2026-05-15
+updatedAt: 2026-05-15
+---
+
+import QueueWaveDemo from "../../../components/interactive/QueueWaveDemo";
+
+## Hook problem
+
+Suppose every hallway takes the same effort to cross. From a starting room, which rooms are one step away, two steps away, and three steps away?
+
+## First naive idea
+
+You could walk down one path until it ends, then backtrack. That finds rooms, but it may rush far away before checking a nearby room.
+
+## Where it breaks
+
+If you need the fewest number of edges, depth-first wandering does not protect the distance order. A far room might be discovered before a closer one.
+
+## The core invention
+
+BFS keeps a queue. When a node is discovered, it waits behind everything already in the queue. That first-in, first-out rule makes the search expand in layers.
+
+## Interactive visual demo
+
+<QueueWaveDemo client:load lang="en" />
+
+## Formal version
+
+Breadth-first search starts from a source node, visits undiscovered neighbors, and processes nodes in queue order. In an unweighted graph, the first time BFS discovers a node is through a shortest path by edge count.
+
+## Implementation sketch
+
+```ts
+function bfs(start: string, graph: Record<string, string[]>) {
+  const visited = new Set([start]);
+  const queue = [start];
+
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    for (const neighbor of graph[node]) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return visited;
+}
+```
+
+## Correctness intuition
+
+The queue never lets a distance-2 node cut in front of a distance-1 node. More generally, nodes leave the queue in nondecreasing distance from the start.
+
+## Complexity
+
+With an adjacency list, BFS visits each node once and scans each edge once, so the running time is `O(V + E)`. The queue and visited set use `O(V)` space.
+
+## Common confusions
+
+BFS gives shortest paths by number of edges, not by total weight. If edges have different costs, the queue rule is no longer enough.
+
+## Connections in the graph
+
+BFS depends on graph basics. Dijkstra's algorithm keeps the frontier idea, but changes how the next node is chosen when edges have weights.
+
+## Exercises
+
+1. In the demo, why does `C` expand before `D`?
+2. What changes if the queue is replaced with a stack?
+3. Can BFS revisit a node and still keep the same shortest-distance guarantee?

@@ -1,0 +1,69 @@
+---
+import LanguageSwitcher from "./LanguageSwitcher.astro";
+import type { Locale } from "../i18n/locales";
+import { graphPath, homePath } from "../lib/routes";
+import { t } from "../i18n/ui";
+
+type Props = {
+  lang: Locale;
+  pathname: string;
+  availableLocales?: Locale[];
+};
+
+const { lang, pathname, availableLocales } = Astro.props;
+---
+
+<header class="site-header">
+  <a class="brand" href={homePath(lang)}>{t(lang, "siteTitle")}</a>
+  <nav aria-label="Primary navigation">
+    <a href={homePath(lang)} aria-current={pathname === homePath(lang) ? "page" : undefined}>{t(lang, "home")}</a>
+    <a href={graphPath(lang)} aria-current={pathname === graphPath(lang) ? "page" : undefined}>{t(lang, "graph")}</a>
+  </nav>
+  <LanguageSwitcher lang={lang} pathname={pathname} availableLocales={availableLocales} />
+</header>
+
+<style>
+  .site-header {
+    align-items: center;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    border-bottom: 1px solid var(--line);
+    display: grid;
+    gap: 16px;
+    grid-template-columns: 1fr auto auto;
+    padding: 14px max(16px, calc((100vw - 1120px) / 2));
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(10px);
+  }
+
+  .brand {
+    color: var(--text);
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  nav {
+    display: flex;
+    gap: 8px;
+  }
+
+  nav a {
+    border-radius: 999px;
+    color: var(--muted);
+    padding: 6px 10px;
+    text-decoration: none;
+  }
+
+  nav a[aria-current="page"] {
+    background: var(--surface-muted);
+    color: var(--text);
+  }
+
+  @media (max-width: 680px) {
+    .site-header {
+      grid-template-columns: 1fr;
+      position: static;
+    }
+  }
+</style>

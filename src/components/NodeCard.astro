@@ -1,0 +1,45 @@
+---
+import type { CollectionEntry } from "astro:content";
+import type { Locale } from "../i18n/locales";
+import { nodePath } from "../lib/routes";
+import { t } from "../i18n/ui";
+
+type Props = {
+  entry: CollectionEntry<"nodes">;
+  lang: Locale;
+};
+
+const { entry, lang } = Astro.props;
+---
+
+<article class="node-card surface">
+  <p class="status">{t(lang, entry.data.status)}</p>
+  <h2><a href={nodePath(lang, entry.data.id)}>{entry.data.title}</a></h2>
+  <p>{entry.data.summary}</p>
+  <a class="read-more" href={nodePath(lang, entry.data.id)}>{t(lang, "readMore")}</a>
+</article>
+
+<style>
+  .node-card {
+    padding: 18px;
+  }
+
+  .node-card h2 {
+    font-size: 1.15rem;
+    line-height: 1.25;
+    margin: 6px 0 8px;
+  }
+
+  .node-card h2 a {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .node-card p {
+    margin: 0 0 12px;
+  }
+
+  .read-more {
+    font-weight: 700;
+  }
+</style>

@@ -1,0 +1,259 @@
+# AGENTS.md
+
+## Project identity
+
+This repository is a multilingual, visual, interactive CS knowledge graph.
+
+The product goal is to help learners understand CS concepts by progressively reinventing ideas from intuition:
+
+1. Start from a concrete problem.
+2. Try a naive method.
+3. Show why it fails or becomes painful.
+4. Introduce the smallest new idea that fixes the pain.
+5. Visualize the state changes.
+6. Only then introduce formal definitions, implementation, invariants, complexity, and graph connections.
+
+Avoid producing definition-first textbook pages unless the task explicitly asks for formal reference material.
+
+## Default stack
+
+Use this stack unless the user explicitly changes it:
+
+- Astro for a mostly-static content site.
+- TypeScript everywhere.
+- MDX for concept pages.
+- React components for interactive visual widgets embedded in MDX.
+- Minimal CSS with CSS variables or plain scoped styles. Avoid large styling frameworks unless requested.
+- No backend in the skeleton.
+- No database in the skeleton.
+- No auth/payments in the skeleton.
+
+## Architecture rules
+
+Use locale-prefixed routes:
+
+```text
+/en/
+/zh/
+/en/graph
+/zh/graph
+/en/nodes/:id
+/zh/nodes/:id
+```
+
+Use `en` as the default locale. Use `zh` for Simplified Chinese user-facing content, and set the document language to `zh-Hans`.
+
+Every concept has a stable language-independent `id`, such as `bfs` or `dijkstra`.
+
+Do not use translated slugs for the first version. Translated slugs can be added later via aliases.
+
+Recommended content layout:
+
+```text
+src/content/nodes/<concept-id>/<locale>.mdx
+```
+
+Example:
+
+```text
+src/content/nodes/bfs/en.mdx
+src/content/nodes/bfs/zh.mdx
+```
+
+Keep graph topology language-independent. UI labels, edge reasons, and page content may be localized.
+
+Recommended graph data layout:
+
+```text
+src/data/graph.ts
+```
+
+with edges like:
+
+```ts
+{
+  from: "graph-basics",
+  to: "bfs",
+  type: "prerequisite",
+  reason: {
+    en: "BFS needs the idea of nodes, edges, and adjacency.",
+    zh: "BFS 需要节点、边和邻接关系这些图的基本概念。"
+  }
+}
+```
+
+## Content frontmatter schema
+
+Each node MDX file should use frontmatter similar to:
+
+```yaml
+id: bfs
+locale: en
+title: Breadth-First Search
+summary: Find shortest paths in an unweighted graph by expanding like a wave.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: algorithm
+tags:
+  - graphs
+  - algorithms
+prerequisites:
+  - graph-basics
+next:
+  - dijkstra
+createdAt: 2026-05-15
+updatedAt: 2026-05-15
+```
+
+Allowed `status` values:
+
+```text
+draft | published | archived
+```
+
+Allowed `translationStatus` values:
+
+```text
+source | translated | needs-review | missing
+```
+
+Allowed `difficulty` values:
+
+```text
+beginner | intermediate | advanced
+```
+
+Allowed `conceptType` examples:
+
+```text
+concept | algorithm | data-structure | system | math | tool
+```
+
+## Page teaching template
+
+When creating or editing a concept page, use this section order unless the user asks otherwise:
+
+1. Hook problem
+2. First naive idea
+3. Where it breaks or becomes painful
+4. The core invention
+5. Interactive visual demo
+6. Formal version
+7. Implementation sketch
+8. Correctness intuition or invariant
+9. Complexity
+10. Common confusions
+11. Connections in the graph
+12. Exercises or prediction questions
+
+Keep the tone intuitive, progressive, and learner-friendly.
+
+## Chinese style rules
+
+For Simplified Chinese pages:
+
+- Use clear Simplified Chinese.
+- Keep important technical terms bilingual on first mention, e.g. `队列（queue）`, `邻接表（adjacency list）`.
+- Avoid machine-translation stiffness.
+- Prefer short paragraphs.
+- Preserve code terms and identifiers in English unless a standard Chinese term is common.
+- Mark `translationStatus: needs-review` if the Chinese text is AI-generated and not yet checked by a human.
+
+## Interactive component rules
+
+Interactive components should be reusable primitives, not one-off demos when possible.
+
+Prefer this pattern:
+
+```text
+algorithm / concept state → trace data → deterministic renderer → controls
+```
+
+A visual widget should expose:
+
+- Play/pause or step controls when appropriate.
+- Reset.
+- Accessible labels.
+- Text explanation of the current state.
+- A reduced-motion-friendly design.
+- No dependence on network calls.
+
+Do not ask an AI model at runtime to generate visualization state. Generate deterministic state from code or static data.
+
+## Graph rules
+
+Graph edge types should use a small controlled vocabulary:
+
+```text
+prerequisite
+generalizes
+special-case
+contrasts
+uses
+motivates
+fails-when
+implemented-by
+applied-in
+```
+
+Each edge should include a localized reason explaining why the connection exists.
+
+Graph validation should check:
+
+- every edge endpoint exists
+- every `prerequisites` id exists
+- each concept has at least English content
+- Chinese content is present or explicitly marked missing
+- duplicate concept ids are rejected
+- unknown locales are rejected
+
+## Testing expectations
+
+When changing code, run or add tests where practical.
+
+Expected scripts:
+
+```bash
+npm run check
+npm run test
+npm run build
+```
+
+At minimum, the skeleton should include a validation script that can be tested with Vitest.
+
+## Accessibility expectations
+
+- Use semantic HTML.
+- Ensure keyboard navigation for controls.
+- Use visible focus states.
+- Provide descriptive button labels.
+- Do not rely on color alone to communicate algorithm state.
+- Respect reduced-motion preferences where practical.
+
+## SEO expectations
+
+For every node page:
+
+- Use localized `<title>` and meta description.
+- Include canonical/alternate language links when practical.
+- Use stable URLs.
+- Do not hide main content behind client-only rendering.
+
+## Coding style
+
+- Prefer small files and clear utilities.
+- Prefer typed data over loose JSON when possible.
+- Do not introduce a backend unless the task requires it.
+- Keep the first version simple and maintainable.
+- Add comments only where they clarify non-obvious logic.
+- Do not over-engineer.
+
+## Before finishing a task
+
+Summarize:
+
+1. What changed.
+2. Files added/edited.
+3. Commands run and their results.
+4. Any remaining issues or decisions for the human.
