@@ -1,0 +1,188 @@
+---
+id: np-hardness
+locale: zh
+title: NP-Hardness
+summary: 理解当每个 NP 判定问题都能归约到一个问题时，为什么称它 NP-hard。
+status: draft
+translationStatus: needs-review
+difficulty: beginner
+conceptType: concept
+tags:
+  - complexity
+  - algorithms
+  - reductions
+  - np-hardness
+prerequisites:
+  - p-vs-np
+  - polynomial-time-reductions
+next:
+  - circuit-sat
+createdAt: 2026-05-16
+updatedAt: 2026-05-16
+---
+
+import NpHardnessHubFigure from "../../../components/interactive/NpHardnessHubFigure";
+import NpHardnessMeaningCards from "../../../components/interactive/NpHardnessMeaningCards";
+import OneReductionVsUniversalFigure from "../../../components/interactive/OneReductionVsUniversalFigure";
+import NpHardnessQuantifierFigure from "../../../components/interactive/NpHardnessQuantifierFigure";
+import NpHardnessTransitivityBridge from "../../../components/interactive/NpHardnessTransitivityBridge";
+import NpHardnessImplicationDemo from "../../../components/interactive/NpHardnessImplicationDemo";
+import HardnessAnswerPreservationLedger from "../../../components/interactive/HardnessAnswerPreservationLedger";
+import NpHardnessCostStack from "../../../components/interactive/NpHardnessCostStack";
+import MembershipVennCards from "../../../components/interactive/MembershipVennCards";
+import NpHardnessMisconceptionCards from "../../../components/interactive/NpHardnessMisconceptionCards";
+import NpHardnessGraphStrip from "../../../components/interactive/NpHardnessGraphStrip";
+import NpHardnessPracticeCards from "../../../components/interactive/NpHardnessPracticeCards";
+
+## 从“目标枢纽”开始
+
+设想一个目标判定问题 `H`，你会先听到这么一句：
+
+> 如果 `H` 是 NP-hard，那么 NP 中的每个可高效检查的问题都应以多项式时间归约到 `H`。
+
+这不是“一个问题”变硬的问题，而是所有 `NP` 问题都指向一个目标的问题。
+
+<NpHardnessHubFigure lang="zh" />
+
+上图强调：每条箭头是定义所要求的翻译承诺，不等于某个具体困难性证明已经完成。
+
+## 第一个朴素直觉
+
+“难”很容易被误解成：
+
+- 一个输入很大就难。
+- 候选很多就难。
+- 目前没有快算法就难。
+
+这些都能给你研究动机，但不足以定义 NP-hard。
+
+<NpHardnessMeaningCards client:load lang="zh" />
+
+## 为什么会坏掉
+
+NP-hardness 看的是比较关系。一个单独归约只是具体例子，不是定义。
+
+<OneReductionVsUniversalFigure client:load lang="zh" />
+
+所以“一条箭头”是“示例来源”，不是“全量来源”。
+
+## 核心发明：对所有源的全称量化
+
+NP-hardness 的形式是：
+
+$$
+H \text{ is NP-hard} \quad\Longleftrightarrow\quad
+\forall L \in NP,\; L \le_p H.
+$$
+
+保真约束是：
+
+$$
+x \in L \quad\Longleftrightarrow\quad f_L(x) \in H
+$$
+
+每一条源都要有双向保持：Yes 与 No 都要保留。
+
+<HardnessAnswerPreservationLedger client:load lang="zh" sourceId="circuit-sat-preview" />
+
+<NpHardnessQuantifierFigure client:load lang="zh" />
+
+## 传递桥：后续证明怎么用
+
+后续我们拿到已知 `NP-hard` 的源问题 `A` 后，不必每次都重画所有源；只要证明：
+
+$$
+\forall L \in NP,\; L \le_p A
+$$
+
+和
+
+$$
+A \le_p H
+$$
+
+然后即可推出
+
+$$
+\forall L \in NP,\; L \le_p H.
+$$
+
+这就是为什么后续多数学科证明会走“已知困难源 + 一步桥接”路线。
+
+<NpHardnessTransitivityBridge client:load lang="zh" />
+
+## 求解器推理管道
+
+条件化地理解：如果假设 `H ∈ P`，那么对每个能有效归约到 `H` 的源问题 `L`，也能在 `P` 中求解它。
+
+```ts
+function solveL(x: L) {
+  const y = reduceLtoH(x);      // f_L(x)
+  return solveH(y);              // 假设在多项式时间内可算
+}
+```
+
+<NpHardnessImplicationDemo client:load lang="zh" />
+
+## 正确性直觉
+
+最后一步靠的是“保持”契约：
+
+- 源实例是 Yes，则 `x in L`，所以 `f_L(x) in H`，目标求解器返回 Yes；
+- 源实例是 No，则 `x notin L`，所以 `f_L(x) notin H`，目标求解器返回 No。
+
+因此只有在双向保持下，返回目标答案才正确。
+
+## 复杂度后果
+
+推理公式是：
+
+$$
+\left(\forall L \in NP,\; L \le_p H\right)
+\land \left(H \in P\right)
+\Longrightarrow NP \subseteq P.
+$$
+
+结合 `P ⊆ NP`（来自 `P 与 NP`）可得：
+
+$$
+P \subseteq NP \quad\text{and}\quad NP \subseteq P
+\Longrightarrow P = NP.
+$$
+
+这是条件命题：它不说明 `P ≠ NP`，只是说“若某个 NP-hard 的 `H` 落在 `P`，则会发生类崩塌”。
+
+<NpHardnessCostStack client:load lang="zh" />
+
+## NP-hard、in NP、NP-complete 的区别
+
+NP-hardness 是与所有 NP 问题比较的关系，不自动给出 `in NP`。
+
+- `NP-hard` 只说比较方向；
+- `NP-hard` 且在 `NP` 里时是 `NP-complete`；
+- 优化任务在本节点不直接作为对象；通常先转成决策版本。
+
+<MembershipVennCards client:load lang="zh" />
+
+## 常见误区
+
+<NpHardnessMisconceptionCards client:load lang="zh" />
+
+## 图谱连接
+
+本节点在局部图中位于：
+
+`p-vs-np -> polynomial-time-reductions -> np-hardness`.
+
+后续具体 `Circuit-SAT` 节点会提供首个真实的源问题构造链。
+
+<NpHardnessGraphStrip client:load lang="zh" />
+
+## 练习
+
+<NpHardnessPracticeCards client:load lang="zh" />
+
+- 选择正确箭头方向。
+- 为什么只用一个源问题不够？
+- 哪个类同时为 `in NP` 与 `NP-hard`？
+- `H ∈ P` 时，源问题会得到什么含义？

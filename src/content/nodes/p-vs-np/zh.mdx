@@ -1,0 +1,177 @@
+---
+id: p-vs-np
+locale: zh
+title: P 与 NP
+summary: 理解“快速找到答案”和“快速检查一个候选答案”之间的区别。
+status: draft
+translationStatus: needs-review
+difficulty: beginner
+conceptType: concept
+tags:
+  - complexity
+  - algorithms
+  - decision-problems
+  - np
+prerequisites: []
+next: []
+createdAt: 2026-05-16
+updatedAt: 2026-05-16
+---
+
+import PnpCircuitFigure from "../../../components/interactive/PnpCircuitFigure";
+import SearchVsCheckGrowthDemo from "../../../components/interactive/SearchVsCheckGrowthDemo";
+import FindVsCheckDemo from "../../../components/interactive/FindVsCheckDemo";
+import PnpDecisionConversionFigure from "../../../components/interactive/PnpDecisionConversionFigure";
+import PnpSetDiagram from "../../../components/interactive/PnpSetDiagram";
+import PnpClassifierCards from "../../../components/interactive/PnpClassifierCards";
+
+## 问题从哪里来
+
+这个节点只围绕一个问题：
+
+> 如果一个候选解可以快速检查，那是否也一定能快速找到一个解？
+
+为了让问题具体一点，先看一个小的布尔锁。它有开关 `x1`、`x2`、`x3`，有几个逻辑门（gate），还有一个输出灯。这里的判定问题（decision problem）只是：是否存在某把钥匙让输出变成 `1`？
+
+如果有人直接给你一把候选钥匙，检查就很直接：设置开关，计算逻辑门，读取输出。这个小锁只是本页的局部例子；本节点真正要讲的是“寻找”和“检查”的区别。
+
+<PnpCircuitFigure lang="zh" scenarioId="hook" />
+
+## 第一个朴素想法
+
+求解一个 Yes/No 搜索问题，最直接的办法是尝试所有候选。
+
+对这个小锁来说，三个开关只有八行，所以暴力搜索看起来并不痛。这有助于看清问题形状，但不是本页的结论。
+
+但这个小电路可能只是走运。更大的最坏情况实例可能把第一个可接受赋值藏在很后面，也可能根本没有可接受赋值。
+
+<PnpCircuitFigure lang="zh" scenarioId="search-snapshot" />
+
+## 它为什么会痛
+
+每多一个布尔输入，候选赋值数量就翻倍。检查一个候选仍然只是沿着电路描述计算；但靠盲目搜索来找到好候选，数量会爆炸。
+
+下面的滑块使用的是扩展思想实验，不是同一个三输入电路。它想表达增长形状：`2^n` 个候选，对比一次多项式规模的检查。
+
+<SearchVsCheckGrowthDemo client:load lang="zh" />
+
+## 核心发明
+
+核心想法是把两件事分开：
+
+- 寻找（finding）：从零开始产生一个解。
+- 检查（checking）：拿到一个候选解后验证它。
+
+证书（certificate）是支持 Yes 答案的额外证据。验证器（verifier）是检查证书的算法。在小锁例子里，证书就是一个赋值；验证器先检查赋值格式，再计算电路，只有输出为 `1` 时才接受。
+
+<PnpCircuitFigure lang="zh" scenarioId="accepting-certificate" />
+
+一个失败候选只排除了那个候选。它不能证明不存在有效证书。
+
+<PnpCircuitFigure lang="zh" scenarioId="candidate-comparison" />
+
+## 互动可视化
+
+<FindVsCheckDemo client:load lang="zh" />
+
+## 判定问题转换
+
+复杂度类通常讨论判定问题：答案只有 Yes/No 的问题。很多“找一个对象”或优化任务，可以通过加入阈值转成判定问题。
+
+<PnpDecisionConversionFigure lang="zh" />
+
+## 形式化版本
+
+这里给出本节点需要的定义。这些定义足够理解 `P vs NP`；更深的困难性工具留给后续节点。
+
+判定问题（decision problem）是输出只有 Yes 或 No 的问题。
+
+多项式时间（polynomial time）表示运行时间被 `O(n^c)` 限制住，其中 `c` 是常数，`n` 是输入大小。
+
+如果一个判定问题能在多项式时间（polynomial time）内求解，它就在 `P` 中。
+
+如果一个判定问题的每个 Yes 实例都有一个多项式大小的证书，并且存在多项式时间验证器能检查这个证书，它就在 `NP` 中。
+
+对小锁例子来说，输入大小包括锁的描述，而不只是开关数量。
+
+<PnpCircuitFigure lang="zh" scenarioId="size-scaffold" />
+
+我们知道 `P` 在 `NP` 里面：如果你已经能快速求解一个判定问题，那也能通过运行这个求解器来快速验证 Yes 答案。真正未知的是：每个能高效检查 Yes 答案的问题，是否也都能高效找到答案？
+
+<PnpSetDiagram lang="zh" />
+
+## 实现草图
+
+在这一层，验证器的职责很简单：接收一个实例和一个证书，先拒绝格式错误的证书，再在多项式时间内检查它声称的性质。
+
+```ts
+type Instance = unknown;
+type Certificate = unknown;
+
+function verify(instance: Instance, certificate: Certificate): boolean {
+  if (!certificateHasValidFormat(instance, certificate)) return false;
+  if (!certificateSizeIsPolynomial(instance, certificate)) return false;
+
+  return checkClaimedYesWitness(instance, certificate);
+}
+```
+
+下面的图只把这个职责展开到固定小锁上：先检查赋值格式，再逐个逻辑门求值。
+
+<PnpCircuitFigure lang="zh" scenarioId="code-trace" />
+
+## 正确性直觉
+
+为什么每个 `P` 中的问题也在 `NP` 中？可以构造一个验证器：它使用空证书或哑证书，直接运行多项式时间求解器。
+
+这不是 Circuit-SAT 的验证器。它是给“已经有多项式时间求解器的问题”使用的另一个验证器。
+
+<PnpCircuitFigure lang="zh" scenarioId="p-subset" />
+
+## 复杂度
+
+`P vs NP` 问的不是“暴力搜索最终能不能找到”。暴力搜索当然是算法，但它可能需要指数时间。
+
+真正的对比是：
+
+- `P`：存在多项式时间方法来找到 Yes/No 答案。
+- `NP`：对 Yes 实例，存在多项式大小的证书，并且能在多项式时间内检查。
+
+盲目搜索所有赋值可能需要 `2^n` 次尝试。检查一个证书则跟输入和证书大小走。
+
+表格只是帮助建立直觉的计数模型，不是完整的编码成本证明。
+
+<PnpCircuitFigure lang="zh" scenarioId="complexity" />
+
+## 常见混淆
+
+`NP` 不是“非多项式”。它表示 Yes 答案有可以高效检查的证书。
+
+`P vs NP` 是开放问题。本节点不应该暗示 `P = NP` 或 `P != NP` 已经被证明。
+
+这一页只需要高效可检查的 Yes 证书。高效可检查的 No 证书会引向其他复杂度类，可以之后再学。
+
+`NP-hard` 不等于“在 `NP` 中”。困难性比较属于另一个节点。
+
+<PnpCircuitFigure lang="zh" scenarioId="common-confusions" />
+
+## 图谱连接
+
+只看这个节点，应该已经能理解 `P`、`NP` 和 `P = NP?` 这个问题本身。
+
+本节点不尝试证明：
+
+- 为什么某些具体问题很难。
+- 归约如何转移困难性。
+- 为什么 Circuit-SAT 是一个核心的完全问题。
+
+这些属于后续更深的节点。这里的 Circuit-SAT/小电路只作为局部例子：候选赋值可以充当证书。
+
+## 预测练习
+
+<PnpClassifierCards client:load lang="zh" />
+
+1. 为什么一个可接受赋值就能证明 Yes 答案？
+2. 为什么一个失败赋值不能证明 No 答案？
+3. 求解一个判定问题和验证一个证书有什么区别？
+4. 为什么 `P` 一定在 `NP` 里面？

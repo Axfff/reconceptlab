@@ -2,7 +2,7 @@
 id: bfs
 locale: zh
 title: 广度优先搜索
-summary: 从起点像波纹一样向外扩张，在无权图中找到按边数计算的最短路径。
+summary: 在无权图中从起点按距离层向外扩张，找到按边数计算的最短路径。
 status: draft
 translationStatus: needs-review
 difficulty: beginner
@@ -18,23 +18,32 @@ createdAt: 2026-05-15
 updatedAt: 2026-05-15
 ---
 
+import BfsScenarioFigure from "../../../components/interactive/BfsScenarioFigure";
 import QueueWaveDemo from "../../../components/interactive/QueueWaveDemo";
 
 ## 问题从哪里来
 
-假设每条走廊穿过去的代价都一样。从一个起点房间出发，哪些房间距离 1 步，哪些距离 2 步，哪些距离 3 步？
+假设每条边的代价都一样：都是一步。从 `A` 出发，哪些节点距离 0 步、1 步、2 步、3 步？
+
+<BfsScenarioFigure lang="zh" scenarioId="hook-layers" />
 
 ## 第一个朴素想法
 
-可以沿着一条路一直走到尽头，再退回来试别的路。这样确实能找到房间，但可能先跑得很远，反而漏掉近处还没检查的房间。
+可以沿着一条路一直深入，例如 `A -> B -> D -> G`，然后再回来看近处的选择。这样可能先到很远的节点，而近处节点还没检查。
+
+<BfsScenarioFigure lang="zh" scenarioId="naive-deep-path" />
 
 ## 它为什么会痛
 
-如果目标是边数最少的路径，深度优先式的乱走不能保证距离顺序。一个很远的节点可能比近处节点更早被发现。
+如果发现顺序可以一直向深处走，它就不再保证按起点距离从近到远。小的有向对比例子只隔离一个差异：先进先出的队列保持层次，而像栈一样后进先出的策略可能先暴露更深节点。
+
+<BfsScenarioFigure lang="zh" scenarioId="queue-vs-stack" />
 
 ## 核心发明
 
-BFS 使用队列（queue）。一个节点被发现后，要排在已经等待的节点后面。这个先进先出规则让搜索按层向外扩张。
+BFS 使用队列（queue）：已发现的节点按先进先出等待。`B` 发现 `D` 和 `E` 时，`C` 仍然排在它们前面，因为 `C` 更早被发现。
+
+<BfsScenarioFigure lang="zh" scenarioId="fifo-repair" />
 
 ## 互动可视化
 
@@ -42,47 +51,74 @@ BFS 使用队列（queue）。一个节点被发现后，要排在已经等待�
 
 ## 形式化版本
 
-广度优先搜索（breadth-first search）从源点开始，访问尚未发现的邻居，并按队列顺序处理节点。在无权图中，BFS 第一次发现某个节点时，对应路径就是按边数计算的最短路径。
+BFS 从源点 `s` 开始，发现尚未发现的邻居，记录 `distance[neighbor] = distance[current] + 1`，记录 `parent[neighbor] = current`，然后把邻居入队。
+
+这一页用已发现（discovered）或已访问（visited）表示节点已经被找到并入队。已展开（expanded）表示节点已经出队并完成扫描。
+
+<BfsScenarioFigure lang="zh" scenarioId="formal-state" />
 
 ## 实现草图
 
 ```ts
 function bfs(start: string, graph: Record<string, string[]>) {
-  const visited = new Set([start]);
   const queue = [start];
+  let head = 0;
+  const visited = new Set([start]);
+  const distance: Record<string, number> = { [start]: 0 };
+  const parent: Record<string, string | undefined> = { [start]: undefined };
 
-  while (queue.length > 0) {
-    const node = queue.shift()!;
-    for (const neighbor of graph[node]) {
-      if (!visited.has(neighbor)) {
-        visited.add(neighbor);
-        queue.push(neighbor);
-      }
+  while (head < queue.length) {
+    const current = queue[head++];
+    for (const neighbor of graph[current]) {
+      if (visited.has(neighbor)) continue;
+      visited.add(neighbor);
+      distance[neighbor] = distance[current] + 1;
+      parent[neighbor] = current;
+      queue.push(neighbor);
     }
   }
 
-  return visited;
+  return { distance, parent };
 }
 ```
 
+可视化里的"出队"对应 `queue[head++]`，而不是 `queue.shift()`，这样 TypeScript 草图仍保持线性队列行为。
+
+<BfsScenarioFigure lang="zh" scenarioId="code-trace" />
+
 ## 正确性直觉
 
-队列不会让距离 2 的节点插到距离 1 的节点前面。更一般地说，节点离开队列的顺序不会让离起点更远的节点抢先。
+队列可以形成 `[剩余第 k 层 | 新发现第 k+1 层]` 这样的边界。关键是剩余的第 `k` 层节点始终排在第 `k+1` 层节点前面，所以更远的节点不会提前展开。
+
+<BfsScenarioFigure lang="zh" scenarioId="layer-barrier" />
 
 ## 复杂度
 
-使用邻接表时，BFS 每个节点访问一次，每条边扫描一次，所以时间复杂度是 `O(V + E)`。队列和 visited 集合需要 `O(V)` 空间。
+使用邻接表时，BFS 每个节点发现一次，并在节点展开时扫描它的邻接行。总时间是 `O(V + E)`，队列、距离表、父节点表和 visited 集合使用 `O(V)` 空间。
+
+<BfsScenarioFigure lang="zh" scenarioId="edge-scan-cost" />
 
 ## 常见混淆
 
-BFS 找到的是按边数计算的最短路径，不是按总权重计算的最短路径。如果边的代价不同，单纯的队列规则就不够了。
+节点一被发现就标记，可以避免重复入队。在这个追踪中，`E` 和 `F` 都会尝试 `G`，但 `G` 保留第一次发现时的父节点。
+
+<BfsScenarioFigure lang="zh" scenarioId="visited-timing" />
+
+BFS 找到的是按边数计算的最短路径。如果边有不同代价，边数最少的路径不一定总代价最低。
+
+<BfsScenarioFigure lang="zh" scenarioId="weighted-counterexample" />
+
+距离是数字。父节点指针用来恢复实际路径树。
+
+<BfsScenarioFigure lang="zh" scenarioId="parent-vs-distance" />
 
 ## 图谱连接
 
-BFS 依赖图的基础。Dijkstra 算法保留"前沿（frontier）向外扩张"这个想法，但在带权边中改变了选择下一个节点的方式。
+BFS 依赖图的基础：它会反复询问当前节点的直接邻居。Dijkstra 保留前沿和距离思想，但按总代价最小来选择下一个节点，而不是按队列顺序。
 
 ## 预测练习
 
-1. 在演示中，为什么 `C` 会比 `D` 先扩张？
-2. 如果把队列换成栈（stack），顺序会发生什么变化？
-3. BFS 如果重复访问节点，还能保持同样的最短距离保证吗？
+1. 展开 `B` 之后，为什么 `C` 仍排在 `D` 和 `E` 前面？
+2. 当 `E` 扫描 `G` 时，为什么 `parent[G]` 仍是 `D`？
+3. 如果把队列换成栈，会发生什么？
+4. 为什么带权三角形需要 Dijkstra，而不是 BFS？

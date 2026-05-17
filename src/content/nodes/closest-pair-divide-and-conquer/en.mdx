@@ -1,0 +1,147 @@
+---
+id: closest-pair-divide-and-conquer
+locale: en
+title: Closest Pair by Divide and Conquer
+summary: Find the nearest two points faster than checking every pair by combining recursion with a local grid search across the split.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - geometry
+  - algorithms
+  - divide-and-conquer
+prerequisites: []
+next:
+  - graham-scan
+createdAt: 2026-05-15
+updatedAt: 2026-05-15
+---
+
+import ClosestPairDemo from "../../../components/interactive/ClosestPairDemo";
+import ClosestPairScenarioFigure from "../../../components/interactive/ClosestPairScenarioFigure";
+
+## Hook problem
+
+Suppose a map contains thousands of points, and you need the two closest ones. The problem is easy to state: among all point pairs, find the pair with the smallest Euclidean distance.
+
+<ClosestPairScenarioFigure lang="en" scenarioId="hook-map" />
+
+## First naive idea
+
+Check all `n(n - 1) / 2` pairs and remember the shortest distance seen so far.
+
+This is simple and correct, but it costs `O(n^2)` distance checks. Even before the algorithm is formal, the count is already the pain.
+
+<ClosestPairScenarioFigure lang="en" scenarioId="naive-pair-count" />
+
+## Where it breaks
+
+A small best-so-far distance can reject a known far pair after you compare it, but a plain list still has no cheap way to ask: "which points are nearby enough to matter?"
+
+<ClosestPairScenarioFigure lang="en" scenarioId="radius-neighborhood" />
+
+The real merge question is: after solving the left half and the right half, how many cross-boundary pairs still deserve attention?
+
+## The core invention
+
+Sort points by `x`, split them by a vertical line, recursively solve each side, and let `r` be the smaller of the two closest distances found. Same-side pairs are now solved by recursion.
+
+<ClosestPairScenarioFigure lang="en" scenarioId="split-after-recursion" />
+
+Small base cases still use brute force: when a recursive subproblem has at most three points, compare those few pairs directly. The point of the recursion is to make the hard part become a merge problem.
+
+<ClosestPairScenarioFigure lang="en" scenarioId="recursion-scaffold" />
+
+Any better answer must be a cross pair whose distance is less than `r`. That means both endpoints must lie within distance `r` of the split line.
+
+<ClosestPairScenarioFigure lang="en" scenarioId="threshold-band" />
+
+The band is only a filter. Inside it, we still need a way to find nearby cross pairs without trying all of them. The grid uses cells of side `r / sqrt(2)` and checks a fixed local window around each active left-side cell.
+
+<ClosestPairScenarioFigure lang="en" scenarioId="packing-occupancy" />
+
+<ClosestPairScenarioFigure lang="en" scenarioId="grid-cell-size" />
+
+<ClosestPairScenarioFigure lang="en" scenarioId="cell-distance-ruler" />
+
+## Interactive visual demo
+
+<ClosestPairDemo client:load lang="en" />
+
+## Formal version
+
+Given a set `P` of points in the plane, split it into `PL` and `PR` by `x`-coordinate. Recursively compute closest distances `rLeft` and `rRight`, and set `r = min(rLeft, rRight)`.
+
+The only unresolved candidates are pairs `(p, q)` with `p` on one side, `q` on the other side, and `dist(p, q) < r`.
+
+<ClosestPairScenarioFigure lang="en" scenarioId="pair-classification" />
+
+For this page, `dist(P, Q) = sqrt((Px - Qx)^2 + (Py - Qy)^2)`. The grid stores band points with side labels, but it emits only left-right candidate pairs. The implementation uses a stable left-side active order, canonical pair ordering, and deduping before counts are shown.
+
+<ClosestPairScenarioFigure lang="en" scenarioId="active-neighbor-cells" />
+
+## Implementation sketch
+
+```ts
+function closestPair(points: Point[]): Distance {
+  const unique = rejectDuplicateCoordinates(points);
+  const byX = sortByX(unique);
+  return solve(byX);
+}
+
+function solve(pointsByX: Point[]): Distance {
+  if (pointsByX.length <= 3) return bruteForce(pointsByX);
+
+  const { leftByX, rightByX, splitX } = splitSortedByX(pointsByX);
+  const rLeft = solve(leftByX);
+  const rRight = solve(rightByX);
+  const r = Math.min(rLeft, rRight);
+
+  return Math.min(r, closestCrossPair(pointsByX, splitX, r));
+}
+```
+
+`closestCrossPair` builds a hash grid for the threshold band. It uses half-open grid cells, checks a conservative `dx,dy in [-2,2]` cell window, and still computes real Euclidean distance before accepting any candidate.
+
+<ClosestPairScenarioFigure lang="en" scenarioId="code-trace-map" />
+
+## Correctness intuition
+
+Every pair is either same-side or cross-side. Same-side pairs are already handled by recursion. A cross pair outside the threshold band cannot beat `r`. A cross pair outside the local grid window cannot beat `r` either. The remaining checked pairs still need actual distance comparisons.
+
+<ClosestPairScenarioFigure lang="en" scenarioId="candidate-filter" />
+
+## Complexity
+
+Sort by `x` once up front and carry ordered lists through recursion, so each level does expected linear merge work. The hash grid gives expected `O(1)` non-empty cell lookups.
+
+```text
+T(n) <= 2T(n / 2) + O(n)
+```
+
+So the total expected running time is `O(n log n)`.
+
+<ClosestPairScenarioFigure lang="en" scenarioId="complexity-tree" />
+
+## Common confusions
+
+The grid does not solve the whole problem by itself. It only makes the merge step cheap after recursion has already produced the distance threshold `r`.
+
+Points exactly on positive grid boundaries use the cell to the right or above. Ties at exactly distance `r` do not replace the current best pair. Duplicate coordinates return distance `0` before the grid is built.
+
+<ClosestPairScenarioFigure lang="en" scenarioId="boundary-cell-rule" />
+
+<ClosestPairScenarioFigure lang="en" scenarioId="tie-distance" />
+
+<ClosestPairScenarioFigure lang="en" scenarioId="duplicate-points" />
+
+## Connections in the graph
+
+Closest pair divide and conquer is a neighboring geometry algorithm to Graham Scan. Closest pair uses recursion plus a local cross-boundary merge; Graham Scan uses angular ordering and a stack invariant.
+
+## Exercises
+
+1. In the demo, why do same-side pairs not need to be checked again in the merge?
+2. Which pairs remain after the threshold band but before the grid-window rule?
+3. Why does the grid still compute Euclidean distance instead of accepting every pair in nearby cells?

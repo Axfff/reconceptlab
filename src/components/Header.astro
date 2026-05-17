@@ -1,7 +1,8 @@
 ---
 import LanguageSwitcher from "./LanguageSwitcher.astro";
+import ThemeToggle from "./ThemeToggle.astro";
 import type { Locale } from "../i18n/locales";
-import { graphPath, homePath } from "../lib/routes";
+import { graphPath, homePath, roadmapPath } from "../lib/routes";
 import { t } from "../i18n/ui";
 
 type Props = {
@@ -14,11 +15,16 @@ const { lang, pathname, availableLocales } = Astro.props;
 ---
 
 <header class="site-header">
-  <a class="brand" href={homePath(lang)}>{t(lang, "siteTitle")}</a>
+  <a class="brand" href={homePath(lang)} aria-label={t(lang, "siteTitle")}>
+    <img src="/assets/reconceptlab-mark.png" alt="" width="28" height="36" />
+    <span>{t(lang, "siteTitle")}</span>
+  </a>
   <nav aria-label="Primary navigation">
     <a href={homePath(lang)} aria-current={pathname === homePath(lang) ? "page" : undefined}>{t(lang, "home")}</a>
     <a href={graphPath(lang)} aria-current={pathname === graphPath(lang) ? "page" : undefined}>{t(lang, "graph")}</a>
+    <a href={roadmapPath(lang)} aria-current={pathname === roadmapPath(lang) ? "page" : undefined}>{t(lang, "roadmaps")}</a>
   </nav>
+  <ThemeToggle lang={lang} />
   <LanguageSwitcher lang={lang} pathname={pathname} availableLocales={availableLocales} />
 </header>
 
@@ -29,7 +35,7 @@ const { lang, pathname, availableLocales } = Astro.props;
     border-bottom: 1px solid var(--line);
     display: grid;
     gap: 16px;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: 1fr auto auto auto;
     padding: 14px max(16px, calc((100vw - 1120px) / 2));
     position: sticky;
     top: 0;
@@ -38,13 +44,24 @@ const { lang, pathname, availableLocales } = Astro.props;
   }
 
   .brand {
+    align-items: center;
     color: var(--text);
+    display: inline-flex;
+    gap: 9px;
     font-weight: 800;
     text-decoration: none;
   }
 
+  .brand img {
+    display: block;
+    height: 32px;
+    object-fit: contain;
+    width: 24px;
+  }
+
   nav {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
   }
 
@@ -56,14 +73,19 @@ const { lang, pathname, availableLocales } = Astro.props;
   }
 
   nav a[aria-current="page"] {
-    background: var(--surface-muted);
+    background: var(--rcl-primary-soft);
     color: var(--text);
   }
 
   @media (max-width: 680px) {
     .site-header {
-      grid-template-columns: 1fr;
+      align-items: start;
+      grid-template-columns: 1fr auto;
       position: static;
+    }
+
+    nav {
+      grid-column: 1 / -1;
     }
   }
 </style>

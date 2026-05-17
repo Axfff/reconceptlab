@@ -8,6 +8,10 @@ export function graphPath(lang: Locale): string {
   return `/${lang}/graph`;
 }
 
+export function roadmapPath(lang: Locale): string {
+  return `/${lang}/roadmaps`;
+}
+
 export function nodePath(lang: Locale, id: string): string {
   return `/${lang}/nodes/${id}`;
 }

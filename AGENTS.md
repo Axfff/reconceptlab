@@ -10,11 +10,18 @@ Reconcept Lab is an Astro website for learning computer science through a biling
 
 The site goal is to help learners build CS ideas from concrete problems instead of memorizing definitions. A good page should feel like the learner is reinventing the concept: meet a problem, try a naive solution, feel the failure, introduce the smallest useful invention, then connect the visual intuition to formal definitions, code, invariants, complexity, and graph relationships.
 
+Each knowledge node should be self-contained and bounded by its topic. A learner should understand the node's central concept from that page alone, with just enough inline scaffolding for required vocabulary and examples. Do not turn a node into a full textbook chapter: deeper details for building blocks, prerequisites, proof machinery, variants, or follow-up algorithms should be named clearly and left for their own nodes. Connections should point outward without making the current page depend on reading them first.
+
+Visual support should be distributed through the page, not concentrated in a single demo. For each useful section, step, state transition, edge case, or conceptual point, consider a nearby static figure, trace-linked diagram, compact state table, or interactive micro-widget. Add it when it clarifies the idea; leave a section prose-only only when a visual would not reduce cognitive load.
+
+The site visual style is **Explorable Lab Notebook**: clean like documentation, visual like a graph, interactive like a simulator, and warm like a learning journal. Use the organized visual prompt package in `docs/visual-style/` when changing UI. Core semantics are blue for stable graph knowledge, orange for active experiments or calls to action, green for insight or solved state, red-orange for pitfalls, and navy/gray for structure and text.
+
 Current skeleton context:
 
 - Routes are locale-prefixed: `/en/`, `/zh/`, `/en/graph`, `/zh/graph`, `/en/nodes/:id`, and `/zh/nodes/:id`.
 - Starter content exists for `graph-basics`, `bfs`, and a short draft placeholder for `dijkstra`.
 - `bfs` embeds `src/components/interactive/QueueWaveDemo.tsx`, a deterministic React BFS queue/frontier demo.
+- MDX content supports formula rendering with `remark-math`, `rehype-katex`, and KaTeX CSS. Use `$...$` for inline formulas and `$$...$$` for display formulas.
 - `src/components/GraphExplorer.tsx` renders the concept graph and an accessible list fallback.
 - Shared locale definitions live in `src/i18n/locales.ts`; shared UI copy lives in `src/i18n/ui.ts`.
 - Content and graph consistency are checked by `scripts/validate-content.ts` and `tests/validate-content.test.ts`.
@@ -27,7 +34,7 @@ The product goal is to help learners understand CS concepts by progressively rei
 2. Try a naive method.
 3. Show why it fails or becomes painful.
 4. Introduce the smallest new idea that fixes the pain.
-5. Visualize the state changes.
+5. Visualize the state changes close to the section or step where the learner needs them.
 6. Only then introduce formal definitions, implementation, invariants, complexity, and graph connections.
 
 Avoid producing definition-first textbook pages unless the task explicitly asks for formal reference material.
@@ -38,7 +45,7 @@ Use this stack unless the user explicitly changes it:
 
 - Astro for a mostly-static content site.
 - TypeScript everywhere.
-- MDX for concept pages.
+- MDX for concept pages, including inline and display formulas rendered with KaTeX.
 - React components for interactive visual widgets embedded in MDX.
 - Minimal CSS with CSS variables or plain scoped styles. Avoid large styling frameworks unless requested.
 - No backend in the skeleton.
@@ -149,7 +156,7 @@ concept | algorithm | data-structure | system | math | tool
 
 ## Page teaching template
 
-When creating or editing a concept page, use this section order unless the user asks otherwise:
+When creating or editing a concept page, use this list as a teaching checklist and suggested progression, not as a rigid page schema:
 
 1. Hook problem
 2. First naive idea
@@ -166,6 +173,23 @@ When creating or editing a concept page, use this section order unless the user 
 
 Keep the tone intuitive, progressive, and learner-friendly.
 
+This template is deliberately flexible. It does not mean every heading must appear in this exact order, exactly once, or under these exact names. Combine, split, repeat, or reorder items when the concept needs it. A complex algorithm may have several cycles of naive attempt -> breaking point -> repair/core invention before it reaches a stable formal version. A small concept may merge formal version, invariant, and complexity into one compact section. The important requirement is the learning arc: learners should meet a concrete need, feel why the obvious approach is insufficient, see the smallest useful idea that repairs the pain, and then connect that idea to formal definitions, code, correctness, cost, confusions, graph relationships, and practice.
+
+The section order is a teaching spine and review checklist, not permission to keep sections text-only until the interactive demo. When designing or editing a page, audit every section for useful visual or interactive support. Prefer multiple small, trace-consistent figures or micro-widgets over one overloaded visualization. A master demo can show the whole algorithm, but section-level visuals should answer local learner questions as they arise.
+
+## Formula rendering rules
+
+Concept MDX pages may use TeX-style formulas through KaTeX:
+
+- Use `$...$` for short inline formulas, such as `$O(V + E)$`.
+- Use `$$...$$` for display formulas when the formula needs its own line.
+- Escape literal dollar signs as `\$` in prose when they are not math delimiters.
+- Put formulas near the visual, trace, invariant, proof idea, or complexity claim they explain.
+- Introduce symbols in words before relying on them, especially for beginner pages.
+- Keep formulas bounded to the current node's scope. If a derivation requires substantial proof machinery, name it and leave the deeper treatment for its own node.
+- Pair important formulas with a plain-language interpretation. A learner should understand what the symbols are doing, not only see the notation.
+- In Chinese pages, keep standard math notation unchanged and explain variables in clear Simplified Chinese.
+
 ## Chinese style rules
 
 For Simplified Chinese pages:
@@ -179,7 +203,7 @@ For Simplified Chinese pages:
 
 ## Interactive component rules
 
-Interactive components should be reusable primitives, not one-off demos when possible.
+Interactive components should be reusable primitives, not one-off demos when possible. Static visual components and small micro-widgets are also first-class teaching tools when full interactivity would be unnecessary.
 
 Prefer this pattern:
 
@@ -187,7 +211,7 @@ Prefer this pattern:
 algorithm / concept state → trace data → deterministic renderer → controls
 ```
 
-A visual widget should expose:
+An interactive widget should expose:
 
 - Play/pause or step controls when appropriate.
 - Reset.
@@ -195,6 +219,8 @@ A visual widget should expose:
 - Text explanation of the current state.
 - A reduced-motion-friendly design.
 - No dependence on network calls.
+
+For algorithm pages, prefer a shared deterministic trace or fixture that can power both the master demo and section-level figures. This keeps the hook, naive failure, core invention, formal state, correctness intuition, edge cases, and exercises visually aligned.
 
 Do not ask an AI model at runtime to generate visualization state. Generate deterministic state from code or static data.
 

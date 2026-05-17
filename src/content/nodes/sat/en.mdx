@@ -1,0 +1,206 @@
+---
+id: sat
+locale: en
+title: Boolean Satisfiability (SAT)
+summary: Decide whether some truth assignment makes a Boolean formula true, and separate searching for an assignment from checking one.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - complexity
+  - algorithms
+  - np-hardness
+  - satisfiability
+  - logic
+prerequisites:
+  - p-vs-np
+  - circuit-sat
+next: []
+createdAt: 2026-05-17
+updatedAt: 2026-05-17
+---
+
+import SatFormulaRuleFigure from "../../../components/interactive/SatFormulaRuleFigure";
+import SatAssignmentGrid from "../../../components/interactive/SatAssignmentGrid";
+import SatGrowthStrip from "../../../components/interactive/SatGrowthStrip";
+import SatSearchToVerifierBridge from "../../../components/interactive/SatSearchToVerifierBridge";
+import SatEvaluationTrace from "../../../components/interactive/SatEvaluationTrace";
+import SatMisconceptionCards from "../../../components/interactive/SatMisconceptionCards";
+import SatGraphStrip from "../../../components/interactive/SatGraphStrip";
+import SatPracticeCards from "../../../components/interactive/SatPracticeCards";
+import {
+  SatAssignmentSummary,
+  SatClaimLedger,
+  SatCostStack,
+  SatEvaluationTable,
+  SatFormalCard,
+  SatSubformulaInvariantRail,
+  SatVocabularyLegend
+} from "../../../components/interactive/SatSupportFigures";
+
+## Hook problem: make the rule true
+
+Imagine an alarm controlled by a written rule rather than by a circuit diagram. Four switches `x1`, `x2`, `x3`, and `x4` can each be `0` or `1`. The rule is a Boolean formula:
+
+```text
+phi = (x1 AND NOT x2 AND (x3 OR x4)) OR (x2 AND x4)
+```
+
+The decision question is:
+
+> Is there any switch setting that makes `phi` evaluate to true?
+
+<SatFormulaRuleFigure lang="en" />
+
+Assignment strings are positional in the order `x1 x2 x3 x4`. For example, `1010` means `x1=1`, `x2=0`, `x3=1`, and `x4=0`.
+
+<SatVocabularyLegend lang="en" />
+
+## First naive idea: try every row
+
+The most direct method is to build the truth table and test rows one by one.
+
+<SatAssignmentGrid client:load lang="en" />
+
+For this four-variable fixture there are only `16` rows, so brute force feels harmless. But the table is the search space, not the certificate.
+
+<SatAssignmentSummary lang="en" />
+
+## Where it breaks: doubling pain
+
+Every new variable doubles the number of possible assignments:
+
+$$
+\text{number of assignments} = 2^n.
+$$
+
+One false row, such as `0000`, proves only that `0000` fails. It does not prove that no satisfying assignment exists.
+
+<SatGrowthStrip client:load lang="en" />
+
+## Core invention: one assignment can be a certificate
+
+Now separate two jobs:
+
+- Search asks whether some satisfying assignment exists.
+- Verification receives one proposed assignment and checks it.
+
+If someone hands us `1010`, we do not need to rebuild the whole table. We validate that the string has one bit per variable, evaluate the formula tree, and accept if the root is true.
+
+<SatSearchToVerifierBridge lang="en" />
+
+The certificate is one claimed witness for a Yes instance. It can prove a Yes answer when it works, but it is not a method for finding itself.
+
+<SatEvaluationTrace client:load lang="en" />
+
+## Formal SAT definition
+
+A Boolean formula is built from variables, literals, and operators such as `AND`, `OR`, and `NOT`. A satisfying assignment is an assignment that makes the whole formula true.
+
+Let `$\varphi$` be a Boolean formula over variables `$x_1,\dots,x_n$`. Let `$a \in \{0,1\}^n$` be one assignment, and let `$\varphi(a)$` be the truth value of the formula under that assignment.
+
+$$
+\varphi \in \text{SAT}
+\quad\Longleftrightarrow\quad
+\exists a \in \{0,1\}^n \text{ such that } \varphi(a)=1.
+$$
+
+In plain language: the formula is satisfiable if at least one truth setting makes the whole expression true.
+
+<SatFormalCard lang="en" />
+
+## Verifier implementation
+
+The verifier's contract is narrower than solving:
+
+```ts
+function verifySat(phi, certificate) {
+  if (!hasOneBitPerVariable(phi, certificate)) return false;
+
+  const assignment = readAssignmentBits(phi, certificate);
+  const rootValue = evaluateFormulaTree(phi.root, assignment);
+  return rootValue === true;
+}
+```
+
+For well-formed assignments:
+
+$$
+\text{verify}(\varphi,a)=1
+\quad\Longleftrightarrow\quad
+\varphi(a)=1.
+$$
+
+Malformed strings such as `101` or `1020` are rejected before formula evaluation, so they are not treated as meaningful false rows.
+
+<SatEvaluationTable lang="en" />
+
+## Subformula invariant
+
+The evaluator walks the expression tree bottom up:
+
+`validation -> x1-left -> x2-left -> not-x2-left -> x3-left -> x4-left -> or-x3-x4 -> and-left -> x2-right -> x4-right -> and-right -> or-root -> final`.
+
+Invariant:
+
+> After each subformula is evaluated, every stored value equals that subformula's truth value under the current assignment.
+
+<SatSubformulaInvariantRail lang="en" />
+
+This is why checking is straightforward. The verifier never guesses a parent value; it computes children first, then applies the parent operator.
+
+## Complexity
+
+The certificate has one bit per variable:
+
+$$
+|a| = n.
+$$
+
+For the fixture, formula size counts variable occurrences and operator nodes. With the n-ary `AND` and `OR` convention used here, `|\varphi| = 11`: six variable occurrences plus five operator nodes.
+
+One verification pass validates the assignment, evaluates the formula tree once, and reads the root:
+
+$$
+\text{one check} = O(|\varphi| + n).
+$$
+
+Blind search may repeat a formula check for every assignment:
+
+$$
+\text{brute force search} = O(2^n \cdot |\varphi|).
+$$
+
+<SatCostStack lang="en" />
+
+This proves `SAT in NP`: a Yes instance has a certificate with one bit per variable, and the verifier runs in polynomial time in the formula size.
+
+## Claim boundary
+
+SAT is also famous because it is NP-complete, but this page does not prove hardness or completeness. The proof path needs reductions, normal forms such as CNF and 3SAT, and more machinery than this node should carry.
+
+The tiny fixture, the satisfying row `1010`, and the verifier trace prove only the membership side: proposed assignments can be checked efficiently.
+
+<SatClaimLedger lang="en" />
+
+## Common confusions
+
+<SatMisconceptionCards client:load lang="en" />
+
+## Connections in the graph
+
+`p-vs-np` gives the language of certificates and verifiers. `circuit-sat` asks the same assignment-search question for gate circuits. SAT is the formula-shaped sibling: the object is now a Boolean expression tree.
+
+Later nodes can explain how circuits become formulas or constraints, why CNF matters, and how 3SAT fits reduction proofs. Those are future nodes, not hidden prerequisites for this page.
+
+<SatGraphStrip lang="en" />
+
+## Exercises
+
+<SatPracticeCards client:load lang="en" />
+
+1. Which subformula first makes assignment `1010` promising?
+2. Why does `0000` not prove that `phi` is unsatisfiable?
+3. Why should `101` stop before any formula-tree evaluation?
+4. Which claim is proved here: `SAT in NP`, `SAT is NP-hard`, or both?

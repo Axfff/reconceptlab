@@ -1,0 +1,134 @@
+/*
+ReConcept Lab design-token draft.
+
+Codex should adapt this to the existing project structure:
+- If the repo uses plain CSS, put variables in src/styles/global.css or equivalent.
+- If the repo uses Tailwind, map these tokens into Tailwind variables/utilities.
+- If the repo already has tokens, merge carefully and preserve names where possible.
+*/
+
+:root {
+  color-scheme: light;
+
+  /* Backgrounds */
+  --rcl-bg: #f8fafc;
+  --rcl-bg-soft: #eef5ff;
+  --rcl-surface: #ffffff;
+  --rcl-surface-elevated: #fdfefe;
+  --rcl-surface-lab: #f5f9ff;
+
+  /* Text */
+  --rcl-text: #102033;
+  --rcl-text-muted: #5b6b7f;
+  --rcl-text-soft: #7b8794;
+  --rcl-text-inverse: #ffffff;
+
+  /* Brand */
+  --rcl-primary: #2563eb;
+  --rcl-primary-strong: #1d4ed8;
+  --rcl-primary-soft: #dbeafe;
+  --rcl-secondary: #f97316;
+  --rcl-secondary-strong: #ea580c;
+  --rcl-secondary-soft: #ffedd5;
+  --rcl-accent: #22c55e;
+  --rcl-accent-strong: #16a34a;
+  --rcl-accent-soft: #dcfce7;
+
+  /* Concept categories */
+  --rcl-concept-algorithm: #f97316;
+  --rcl-concept-data-structure: #22c55e;
+  --rcl-concept-theory: #06b6d4;
+  --rcl-concept-system: #6366f1;
+  --rcl-concept-pitfall: #ef4444;
+
+  /* Structure */
+  --rcl-border: #d8e2ee;
+  --rcl-border-strong: #b7c7dc;
+  --rcl-grid: rgba(37, 99, 235, 0.08);
+
+  /* States */
+  --rcl-warning: #f59e0b;
+  --rcl-error: #ef4444;
+  --rcl-success: #22c55e;
+
+  /* Typography */
+  --rcl-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --rcl-font-serif: "Source Serif 4", Georgia, "Noto Serif SC", serif;
+  --rcl-font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  /* Geometry */
+  --rcl-radius-sm: 8px;
+  --rcl-radius-md: 14px;
+  --rcl-radius-lg: 20px;
+  --rcl-radius-xl: 28px;
+
+  /* Shadows */
+  --rcl-shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.06);
+  --rcl-shadow-md: 0 12px 32px rgba(15, 23, 42, 0.08);
+  --rcl-shadow-lg: 0 24px 64px rgba(15, 23, 42, 0.10);
+  --rcl-glow-blue: 0 0 28px rgba(37, 99, 235, 0.18);
+  --rcl-glow-orange: 0 0 28px rgba(249, 115, 22, 0.22);
+  --rcl-glow-green: 0 0 28px rgba(34, 197, 94, 0.18);
+
+  /* Layout */
+  --rcl-page-x: clamp(1rem, 4vw, 4rem);
+  --rcl-content-width: 760px;
+  --rcl-wide-width: 1120px;
+  --rcl-shell-width: 1280px;
+
+  /* Motion */
+  --rcl-motion-fast: 120ms;
+  --rcl-motion-normal: 220ms;
+  --rcl-motion-slow: 420ms;
+  --rcl-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[data-theme="dark"],
+.dark {
+  color-scheme: dark;
+
+  --rcl-bg: #08111f;
+  --rcl-bg-soft: #0d1b2f;
+  --rcl-surface: #101c2e;
+  --rcl-surface-elevated: #14243a;
+  --rcl-surface-lab: #0d1b2f;
+
+  --rcl-text: #e5edf7;
+  --rcl-text-muted: #9fb0c3;
+  --rcl-text-soft: #7f91a8;
+  --rcl-text-inverse: #08111f;
+
+  --rcl-primary: #60a5fa;
+  --rcl-primary-strong: #93c5fd;
+  --rcl-primary-soft: rgba(96, 165, 250, 0.16);
+  --rcl-secondary: #fb923c;
+  --rcl-secondary-strong: #fdba74;
+  --rcl-secondary-soft: rgba(251, 146, 60, 0.16);
+  --rcl-accent: #4ade80;
+  --rcl-accent-strong: #86efac;
+  --rcl-accent-soft: rgba(74, 222, 128, 0.16);
+
+  --rcl-border: #26384f;
+  --rcl-border-strong: #38516f;
+  --rcl-grid: rgba(96, 165, 250, 0.08);
+
+  --rcl-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.18);
+  --rcl-shadow-md: 0 12px 32px rgba(0, 0, 0, 0.24);
+  --rcl-shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.32);
+}
+
+.rcl-graph-paper {
+  background-image:
+    linear-gradient(var(--rcl-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--rcl-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}

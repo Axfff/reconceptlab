@@ -1,0 +1,141 @@
+---
+import Layout from "../../components/Layout.astro";
+import { localeCodes, type Locale } from "../../i18n/locales";
+import { t } from "../../i18n/ui";
+import { nodePath } from "../../lib/routes";
+
+export function getStaticPaths() {
+  return localeCodes.map((lang) => ({ params: { lang } }));
+}
+
+const lang = Astro.params.lang as Locale;
+
+const copy = {
+  en: {
+    title: "Roadmaps",
+    intro: "Curated paths through the graph for learners who want a route, not just a map.",
+    open: "Open first concept",
+    paths: [
+      ["CS Foundations", "Build the graph vocabulary first, then use it to reason about search and shortest paths.", "graph-basics", 4],
+      ["Data Structures & Algorithms", "Follow algorithm pages as visible state machines with traces, invariants, and complexity.", "bfs", 6],
+      ["Systems Basics", "A placeholder path for future systems concepts that need concrete operational models.", "graph-basics", 0],
+      ["Theory Foundations", "A placeholder path for future proof, geometry, and model-of-computation concepts.", "closest-pair-divide-and-conquer", 2]
+    ]
+  },
+  zh: {
+    title: "路线图",
+    intro: "给想按路径学习的人准备的图谱入口：不只是地图，也是一条可走的路线。",
+    open: "打开第一个概念",
+    paths: [
+      ["CS 基础", "先建立图的词汇，再用它理解搜索和最短路。", "graph-basics", 4],
+      ["数据结构与算法", "把算法页当作可见的状态机：trace、不变量和复杂度一起看。", "bfs", 6],
+      ["系统基础", "预留给未来系统概念的路径，用具体运行模型解释抽象机制。", "graph-basics", 0],
+      ["理论基础", "预留给未来证明、几何和计算模型概念的路径。", "closest-pair-divide-and-conquer", 2]
+    ]
+  }
+}[lang];
+---
+
+<Layout lang={lang} title={copy.title} description={copy.intro}>
+  <section class="roadmap-hero rcl-graph-paper">
+    <p class="section-kicker">{t(lang, "roadmaps")}</p>
+    <h1>{copy.title}</h1>
+    <p>{copy.intro}</p>
+  </section>
+
+  <section class="roadmap-grid" aria-label={copy.title}>
+    {copy.paths.map(([title, description, firstNode, count]) => (
+      <article class="roadmap-card surface">
+        <div class="roadmap-icon" aria-hidden="true"></div>
+        <h2>{title}</h2>
+        <p>{description}</p>
+        <div class="roadmap-meta">
+          <span>{count} {t(lang, "concepts")}</span>
+          <span class="progress"><span style={`width: ${Math.max(12, Number(count) * 10)}%`}></span></span>
+        </div>
+        <a class="rcl-button secondary" href={nodePath(lang, String(firstNode))}>{copy.open}</a>
+      </article>
+    ))}
+  </section>
+</Layout>
+
+<style>
+  .roadmap-hero {
+    background-color: color-mix(in srgb, var(--surface) 88%, transparent);
+    border: 1px solid var(--line);
+    border-radius: var(--rcl-radius-xl);
+    box-shadow: var(--rcl-shadow-md);
+    margin-bottom: 28px;
+    padding: clamp(24px, 5vw, 54px);
+  }
+
+  .roadmap-hero h1 {
+    font-size: clamp(2.4rem, 6vw, 5.2rem);
+    line-height: 0.98;
+    margin: 0 0 14px;
+  }
+
+  .roadmap-hero p:not(.section-kicker) {
+    color: var(--muted);
+    font-size: 1.1rem;
+    max-width: 680px;
+  }
+
+  .roadmap-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+
+  .roadmap-card {
+    display: grid;
+    gap: 12px;
+    padding: 22px;
+  }
+
+  .roadmap-icon {
+    background:
+      radial-gradient(circle at 25% 50%, var(--rcl-secondary) 0 7px, transparent 8px),
+      radial-gradient(circle at 54% 26%, var(--rcl-primary) 0 7px, transparent 8px),
+      radial-gradient(circle at 78% 65%, var(--rcl-accent) 0 7px, transparent 8px),
+      linear-gradient(28deg, transparent 31%, var(--line) 32% 34%, transparent 35%),
+      linear-gradient(-22deg, transparent 34%, var(--line) 35% 37%, transparent 38%);
+    border: 1px solid var(--line);
+    border-radius: var(--rcl-radius-md);
+    height: 92px;
+  }
+
+  .roadmap-card h2,
+  .roadmap-card p {
+    margin: 0;
+  }
+
+  .roadmap-card p {
+    color: var(--muted);
+  }
+
+  .roadmap-meta {
+    display: grid;
+    gap: 8px;
+  }
+
+  .roadmap-meta span:first-child {
+    color: var(--rcl-primary-strong);
+    font-size: 0.9rem;
+    font-weight: 850;
+  }
+
+  .progress {
+    background: var(--surface-muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    height: 10px;
+    overflow: hidden;
+  }
+
+  .progress span {
+    background: linear-gradient(90deg, var(--rcl-primary), var(--rcl-accent));
+    display: block;
+    height: 100%;
+  }
+</style>

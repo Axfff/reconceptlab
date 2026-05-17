@@ -1,0 +1,201 @@
+---
+id: polynomial-time-reductions
+locale: zh
+title: 多项式时间归约
+summary: 把一个判定问题翻译成另一个判定问题，并保持 Yes/No 答案不变。
+status: draft
+translationStatus: needs-review
+difficulty: beginner
+conceptType: concept
+tags:
+  - complexity
+  - algorithms
+  - reductions
+  - np-hardness
+prerequisites:
+  - p-vs-np
+next: []
+createdAt: 2026-05-16
+updatedAt: 2026-05-16
+---
+
+import PathEncodingTranslatorFigure from "../../../components/interactive/PathEncodingTranslatorFigure";
+import ReductionSolverDirectionWidget from "../../../components/interactive/ReductionSolverDirectionWidget";
+import ReductionTruthTable from "../../../components/interactive/ReductionTruthTable";
+import ReductionQuantifierFigure from "../../../components/interactive/ReductionQuantifierFigure";
+import ReductionProofPipeline from "../../../components/interactive/ReductionProofPipeline";
+import ReductionCostTable from "../../../components/interactive/ReductionCostTable";
+import ReductionHardnessDirectionPreview from "../../../components/interactive/ReductionHardnessDirectionPreview";
+import ReductionChainPreview from "../../../components/interactive/ReductionChainPreview";
+import ReductionMisconceptionCards from "../../../components/interactive/ReductionMisconceptionCards";
+import ReductionPracticeCards from "../../../components/interactive/ReductionPracticeCards";
+import ReductionGraphStrip from "../../../components/interactive/ReductionGraphStrip";
+
+## 问题从哪里来
+
+假设你已经有一个很快的可达性求解器，但它要求图写成邻接表（adjacency map）：
+
+```text
+{ A: [B], B: [C], C: [] }, 问：A 能到达 C 吗？
+```
+
+现在收到的输入却是边列表（edge list）：
+
+```text
+[(A,B), (B,C)], 问：A 能到达 C 吗？
+```
+
+你一定要重新写一个求解器吗？不一定。可以先把边列表实例翻译成邻接表实例，再调用已经可信的求解器，并返回同一个 Yes/No 答案。
+
+<PathEncodingTranslatorFigure lang="zh" variant="hook" />
+
+本页只讲这个想法：一个快速、保持答案的实例翻译器。这个例子是格式适配器，不是困难性证明。
+
+## 第一个朴素混淆
+
+记号会写成 `A <=p B`，读作“`A` 在多项式时间内归约到 `B`”。学习者最常见的早期错误，是把求解器方向弄反。
+
+如果 `A <=p B`，源实例从 `A` 开始，翻译器产生一个 `B` 的实例，然后你需要 `B` 的求解器。
+
+<ReductionSolverDirectionWidget client:load lang="zh" />
+
+这里先只讲算法转移（algorithm transfer）。困难性转移的说法要等证明流水线和复杂度模型都看清之后再出现。
+
+## 它为什么有用
+
+如果没有翻译器，边列表版本的可达性问题看起来像一个新问题：要写新解析、新遍历设置，还要重新证明。
+
+有了翻译器，工作就小很多：把同一张图整理成已有求解器需要的表示，再复用那个求解器。
+
+<PathEncodingTranslatorFigure lang="zh" variant="pain" />
+
+同一个模式之后也会用于困难性证据。我们不必对每个目标问题都从零证明，而是让一个被怀疑的源问题通过保持 Yes/No 的翻译器连接到多个目标问题。
+
+## 核心发明
+
+归约（reduction）不是源问题的求解器。它是一个函数 `f`，负责改变实例的格式或问题设置，同时保持判定答案。
+
+请把路径例子作为主图像。下面的小算术例子只是为了让表格和代码草图更紧凑：
+
+- 源问题 `TwoNumberSum4`：输入 `a, b`；问 `a + b = 4` 吗？
+- 目标问题 `TargetSum`：输入 `a, b, target`；问 `a + b = target` 吗？
+- 翻译器：复制 `a` 和 `b`，再设置 `target = 4`。
+
+<ReductionTruthTable lang="zh" />
+
+Yes 行和 No 行都重要。只把 Yes 实例送到 Yes 实例，并不足以构成有效归约。
+
+## 形式化版本
+
+对判定问题（decision problem）`A` 和 `B`，如果存在一个函数 `f` 满足下面两点，就写作 `A <=p B`：
+
+1. `f` 可以在多项式时间（polynomial time）内计算，时间按源实例的编码长度度量。
+2. 对每个源实例 `x`，`x in A` 当且仅当 `f(x) in B`。
+
+这里 `in A` 的意思是“这是问题 `A` 的 Yes 实例”。`iff` 表示“当且仅当”，所以它同时包含 Yes 保持和 No 保持。
+
+<PathEncodingTranslatorFigure lang="zh" variant="formal" />
+
+<ReductionQuantifierFigure lang="zh" />
+
+`iff` 中看起来像反向的那一半很容易被读过头。它说的是配对实例 `f(x)`。它不表示 `B` 的任意实例都来自 `A`，也不要求存在从 `B` 任意实例翻译回 `A` 的反向翻译器。
+
+## 证明方向
+
+一旦已经证明 `A <=p B`，如果 `B` 有多项式时间求解器，那么 `A` 也有多项式时间求解器：
+
+```ts
+function solveA(x: SourceInstance): boolean {
+  const y = reduceAtoB(x);
+  return solveB(y);
+}
+```
+
+这个源问题求解器只做四件事：接收 `x`，计算 `f(x)`，调用目标求解器，然后返回同一个 Yes/No 答案。
+
+<ReductionProofPipeline client:load lang="zh" />
+
+## 实现草图
+
+对仅用于机制演示的算术例子，翻译器故意很小：
+
+```ts
+function reduceTwoNumberSum4ToTargetSum(source: { a: number; b: number }) {
+  return { a: source.a, b: source.b, target: 4 };
+}
+```
+
+这段代码没有证明任何问题困难。它只是让归约合约可以被测试：每一行都满足 `sourceAnswer(x) === targetAnswer(f(x))`。
+
+| 证明步骤 | 代码职责 |
+|---|---|
+| `receive-source` | 接收一个源实例 `x` |
+| `compute-target` | 在多项式时间内计算 `y = f(x)` |
+| `solve-target` | 在 `y` 上调用问题 `B` 的求解器 |
+| `return-answer` | 把同一个 Yes/No 答案返回给 `x` |
+
+## 正确性直觉
+
+正确性说明了为什么最后一行可以把目标问题答案当作源问题答案返回。
+
+如果 `x` 是 `A` 的 Yes 实例，那么 `f(x)` 是 `B` 的 Yes 实例。如果 `x` 是 `A` 的 No 实例，那么 `f(x)` 是 `B` 的 No 实例。因此，目标求解器在 `f(x)` 上的答案，正好就是 `x` 所需要的答案。
+
+<ReductionQuantifierFigure lang="zh" />
+
+注意没有承诺的部分：目标求解器可能知道很多从未被这个翻译器产生过的 `B` 实例。这些无关实例不在本归约的正确性声明里。
+
+## 复杂度
+
+翻译器必须快，而且它的输出不能把指数级工作藏进一个巨大目标实例里。
+
+下面的模型中，源编码长度是 `n`，翻译工作量是 `n^2`，映射后的目标编码长度至多是 `n^2`，目标求解器花费目标编码长度的三次方。总时间是 `n^2 + (n^2)^3 = n^2 + n^6`，仍然是多项式。
+
+<ReductionCostTable lang="zh" />
+
+输入大小指编码描述长度，不是输入里某个数值本身的大小。这也是算术例子只作为机制演示的原因。
+
+## 困难性预告
+
+上面的证明说：`A <=p B` 加上 `B` 的快速求解器，会得到 `A` 的快速求解器。
+
+困难性证据的预告版使用同一句话做反事实思考：如果 `B` 有快速求解器，那么这个归约会给 `A` 一个快速求解器；因此，任何让我们怀疑 `A` 很难快速求解的理由，也会落到 `B` 上。
+
+<ReductionHardnessDirectionPreview lang="zh" />
+
+本页不证明 `P != NP`，不正式定义 NP-hardness，也不声称这些玩具例子本身很困难。
+
+## 后续链条预览
+
+后续节点会用真正的构造来实例化同一个保持合约：
+
+<ReductionChainPreview lang="zh" />
+
+上面的箭头只是路线图。具体构造细节属于那些后续节点。
+
+## 常见混淆
+
+<ReductionMisconceptionCards client:load lang="zh" />
+
+请记住这些边界：
+
+- `A <=p B` 表示 `B` 的求解器可以帮助求解 `A`。
+- 归约保持判定答案，不一定保持同样形状的见证对象。
+- 如果翻译器内部做指数搜索，它就不是多项式时间归约。
+- 玩具格式适配器可以讲清机制，但不能证明困难性。
+
+## 图谱连接
+
+`P 与 NP` 提供了判定问题和多项式时间的词汇。本节点加入比较工具：在判定问题之间做快速、保持答案的翻译。
+
+<ReductionGraphStrip lang="zh" />
+
+下一个计划节点 `np-hardness` 会命名正式的困难性转移规则。它现在还没有链接成路线，因为站点里还没有这个节点。
+
+## 预测练习
+
+<ReductionPracticeCards client:load lang="zh" />
+
+1. 在 `A <=p B` 中，为什么要求解器调用发生在 `B`？
+2. 为什么必须保持 No 实例，而不只是保持 Yes 实例？
+3. 即使目标求解器很快，为什么指数时间翻译器仍然无效？
+4. 对不在 `f` 的像里的目标实例，本归约到底承诺了什么？

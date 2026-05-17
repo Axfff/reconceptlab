@@ -28,6 +28,7 @@ if (!entry) {
 const availableLocales = await getAvailableNodeLocales(id);
 const { Content } = await render(entry);
 const graphNode = graphNodes.find((node) => node.id === id);
+const related = graphNodes.filter((node) => entry.data.prerequisites.includes(node.id) || entry.data.next.includes(node.id));
 ---
 
 <Layout
@@ -37,29 +38,149 @@ const graphNode = graphNodes.find((node) => node.id === id);
   pathname={nodePath(lang, id)}
   availableLocales={availableLocales}
 >
-  <article class="prose">
-    <p class="status">{t(lang, entry.data.status)}</p>
-    <h1>{entry.data.title}</h1>
-    <p class="summary">{entry.data.summary}</p>
-    <dl class="meta-grid">
-      <div>
-        <dt>{t(lang, "prerequisites")}</dt>
-        <dd>{entry.data.prerequisites.length > 0 ? entry.data.prerequisites.join(", ") : t(lang, "none")}</dd>
+  <article class="concept-shell">
+    <header class="concept-hero rcl-graph-paper">
+      <a class="breadcrumb" href={graphPath(lang)}>{t(lang, "graphConnections")}</a>
+      <p class="status">{t(lang, entry.data.status)}</p>
+      <h1>{entry.data.title}</h1>
+      <p class="summary">{entry.data.summary}</p>
+      <div class="badge-row" aria-label="Concept metadata">
+        <span>{entry.data.conceptType}</span>
+        <span>{entry.data.difficulty}</span>
+        {entry.data.tags.map((tag) => <span>{tag}</span>)}
       </div>
-      <div>
-        <dt>{t(lang, "next")}</dt>
-        <dd>{entry.data.next.length > 0 ? entry.data.next.join(", ") : t(lang, "none")}</dd>
-      </div>
-    </dl>
-    <Content />
-    <p>
-      <a href={graphPath(lang)}>{t(lang, "graphConnections")}</a>
-      {graphNode ? `: ${graphNode.label[lang]}` : ""}
-    </p>
+    </header>
+
+    <div class="concept-layout">
+      <main class="concept-main prose">
+        <Content />
+        <p class="graph-return">
+          <a href={graphPath(lang)}>{t(lang, "graphConnections")}</a>
+          {graphNode ? `: ${graphNode.label[lang]}` : ""}
+        </p>
+      </main>
+      <aside class="concept-sidebar" aria-label={t(lang, "currentState")}>
+        <div class="surface">
+          <h2>{t(lang, "prerequisites")}</h2>
+          <p>{entry.data.prerequisites.length > 0 ? entry.data.prerequisites.join(", ") : t(lang, "none")}</p>
+        </div>
+        <div class="surface">
+          <h2>{t(lang, "next")}</h2>
+          <p>{entry.data.next.length > 0 ? entry.data.next.join(", ") : t(lang, "none")}</p>
+        </div>
+        {related.length > 0 ? (
+          <div class="surface">
+            <h2>{t(lang, "graph")}</h2>
+            <ul>
+              {related.map((node) => (
+                <li><a href={nodePath(lang, node.id)}>{node.label[lang]}</a></li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </aside>
+    </div>
   </article>
 </Layout>
 
 <style>
+  .concept-hero {
+    background-color: color-mix(in srgb, var(--surface) 88%, transparent);
+    border: 1px solid var(--line);
+    border-radius: var(--rcl-radius-xl);
+    box-shadow: var(--rcl-shadow-md);
+    margin-bottom: 26px;
+    padding: clamp(24px, 5vw, 52px);
+  }
+
+  .breadcrumb {
+    color: var(--rcl-primary-strong);
+    font-size: 0.9rem;
+    font-weight: 850;
+    text-decoration: none;
+  }
+
+  .concept-hero h1 {
+    font-size: clamp(2.3rem, 6vw, 5rem);
+    line-height: 0.98;
+    margin: 4px 0 14px;
+    max-width: 900px;
+  }
+
+  .concept-hero .summary {
+    max-width: 720px;
+  }
+
+  .badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .badge-row span {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 0.86rem;
+    font-weight: 850;
+    padding: 5px 10px;
+    text-transform: capitalize;
+  }
+
+  .concept-layout {
+    align-items: start;
+    display: grid;
+    gap: 28px;
+    grid-template-columns: minmax(0, 760px) minmax(220px, 1fr);
+  }
+
+  .concept-main {
+    min-width: 0;
+  }
+
+  .concept-main :global(h2) {
+    border-top: 1px solid var(--line);
+    padding-top: 28px;
+  }
+
+  .concept-sidebar {
+    display: grid;
+    gap: 14px;
+    position: sticky;
+    top: 92px;
+  }
+
+  .concept-sidebar .surface {
+    padding: 16px;
+  }
+
+  .concept-sidebar h2 {
+    font-size: 0.9rem;
+    margin: 0 0 8px;
+  }
+
+  .concept-sidebar p,
+  .concept-sidebar ul {
+    color: var(--muted);
+    margin: 0;
+  }
+
+  .concept-sidebar ul {
+    display: grid;
+    gap: 6px;
+    list-style: none;
+    padding: 0;
+  }
+
+  .graph-return {
+    background: var(--rcl-primary-soft);
+    border: 1px solid color-mix(in srgb, var(--rcl-primary) 28%, var(--line));
+    border-radius: var(--rcl-radius-md);
+    padding: 14px 16px;
+  }
+
   .meta-grid {
     display: grid;
     gap: 12px;
@@ -82,5 +203,15 @@ const graphNode = graphNodes.find((node) => node.id === id);
 
   dd {
     margin: 4px 0 0;
+  }
+
+  @media (max-width: 900px) {
+    .concept-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .concept-sidebar {
+      position: static;
+    }
   }
 </style>

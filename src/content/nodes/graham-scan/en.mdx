@@ -1,0 +1,133 @@
+---
+id: graham-scan
+locale: en
+title: Graham Scan
+summary: Build a convex hull by sorting points around an anchor and maintaining a left-turn stack.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - geometry
+  - algorithms
+  - convex-hull
+prerequisites: []
+next: []
+createdAt: 2026-05-15
+updatedAt: 2026-05-15
+---
+
+import GrahamScanDemo from "../../../components/interactive/GrahamScanDemo";
+import GrahamScenarioFigure from "../../../components/interactive/GrahamScenarioFigure";
+
+## Hook problem
+
+Suppose you have scattered points and want the tight outside boundary around them. Picture stretching a rubber band around all the points and letting it snap tight. The convex hull is the polygon touched by that band.
+
+This page returns only the hull corner vertices in counterclockwise order. If several points lie on one flat hull edge, the middle points are not reported as corners.
+
+<GrahamScenarioFigure lang="en" scenarioId="hook-hull" />
+
+## First naive idea
+
+Try every possible directed edge between two points and ask whether all other points lie on one side of that edge. If they do, that edge might be part of the outside fence.
+
+That idea matches the supporting-line picture, but it is expensive: about `n^2` candidate edges, and each candidate scans up to `n` other points. It also gives loose boundary fragments instead of a clean way to walk around the hull.
+
+## Where it breaks
+
+The missing piece is order. Even if you can test whether an edge is on the outside, you still need to know which point should come next and how to repair a point that later turns out to cave inward.
+
+## The core invention
+
+Choose an anchor: the point with smallest `y`, breaking ties by smallest `x`. This convention is lowest-leftmost, which gives a clean starting point for sweeping counterclockwise from the positive `x` direction.
+
+From the anchor, sort every other point by polar angle. Start with the ray pointing right from the anchor and rotate counterclockwise.
+
+<GrahamScenarioFigure lang="en" scenarioId="anchor-sort" />
+
+Now scan the sorted points with a stack. The stack stores the current tentative hull corners. When the newest three points make a right turn, the middle point creates an inward dent, so pop it. Under the corner-only convention, collinear middle points are also popped.
+
+## Interactive visual demo
+
+<GrahamScanDemo client:load lang="en" />
+
+## Formal version
+
+For three points `p`, `q`, and `r`, define:
+
+```ts
+orient(p, q, r) =
+  (q.x - p.x) * (r.y - p.y) -
+  (q.y - p.y) * (r.x - p.x);
+```
+
+Think of walking from `p` to `q`, then asking where `r` lies. Positive orientation means a left turn, negative means a right turn, and zero means the points are collinear.
+
+## Implementation sketch
+
+```ts
+function grahamScan(points: Point[]) {
+  const unique = uniquePoints(points);
+  if (unique.length <= 2) return unique;
+
+  const anchor = lowestLeftmost(unique);
+  const sorted = unique
+    .filter((p) => p.id !== anchor.id)
+    .sort((a, b) => {
+      const turn = orient(anchor, a, b);
+      if (turn !== 0) return turn > 0 ? -1 : 1;
+      return distanceSquared(anchor, a) - distanceSquared(anchor, b);
+    });
+
+  const hull = [anchor];
+
+  for (const point of sorted) {
+    while (
+      hull.length >= 2 &&
+      orient(hull[hull.length - 2], hull[hull.length - 1], point) <= 0
+    ) {
+      hull.pop();
+    }
+    hull.push(point);
+  }
+
+  return hull;
+}
+```
+
+Same-angle points are sorted nearer first. When the farther point arrives, the nearer point becomes a collinear middle point and is popped.
+
+<GrahamScenarioFigure lang="en" scenarioId="same-angle" />
+
+## Correctness intuition
+
+After polar-angle sorting, the scan never moves backward around the anchor. A right turn means the newest boundary prefix bends inward, so the middle stack point cannot be a hull corner. A collinear middle point is not a corner either under this page's output convention.
+
+<GrahamScenarioFigure lang="en" scenarioId="right-turn-pop-f" />
+
+The stack keeps the best known counterclockwise boundary prefix. Each pop removes a point that has just been proven non-corner by the next point in angular order.
+
+## Complexity
+
+Finding the anchor and scanning the stack are linear. Sorting by polar angle dominates the running time, so Graham Scan runs in `O(n log n)` time.
+
+Each point is pushed once and popped at most once, so the stack work is `O(n)`.
+
+## Common confusions
+
+Duplicate coordinates should be removed before choosing the anchor.
+
+If there are fewer than three distinct points, the answer is just those points.
+
+This version returns only corner vertices. A different variant can keep every point on a flat boundary edge by changing the collinearity rule.
+
+## Connections in the graph
+
+Graham Scan is a neighboring geometry algorithm to closest-pair divide and conquer, not a prerequisite. Closest pair uses recursion and local cross-boundary checks; Graham Scan uses angular ordering and a stack invariant.
+
+## Exercises
+
+1. Why does sorting by polar angle make the scan move around the anchor in one direction?
+2. In the demo, why is `B` removed when `C` arrives?
+3. What would change if you wanted to keep every point on a flat hull edge?

@@ -1,0 +1,177 @@
+---
+id: p-vs-np
+locale: en
+title: P vs NP
+summary: Understand the difference between finding a solution quickly and checking a proposed solution quickly.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: concept
+tags:
+  - complexity
+  - algorithms
+  - decision-problems
+  - np
+prerequisites: []
+next: []
+createdAt: 2026-05-16
+updatedAt: 2026-05-16
+---
+
+import PnpCircuitFigure from "../../../components/interactive/PnpCircuitFigure";
+import SearchVsCheckGrowthDemo from "../../../components/interactive/SearchVsCheckGrowthDemo";
+import FindVsCheckDemo from "../../../components/interactive/FindVsCheckDemo";
+import PnpDecisionConversionFigure from "../../../components/interactive/PnpDecisionConversionFigure";
+import PnpSetDiagram from "../../../components/interactive/PnpSetDiagram";
+import PnpClassifierCards from "../../../components/interactive/PnpClassifierCards";
+
+## Hook problem
+
+This node is about one question:
+
+> If a proposed solution can be checked quickly, does that mean a solution can also be found quickly?
+
+To make the question concrete, use a tiny Boolean lock. It has switches `x1`, `x2`, `x3`, a few logic gates, and an output light. The decision question is only: does any key make the output `1`?
+
+If someone hands you one key, checking it is direct: set the switches, evaluate the gates, and read the output. This toy lock is only a local example; the topic of the node is the find-versus-check distinction.
+
+<PnpCircuitFigure lang="en" scenarioId="hook" />
+
+## First naive idea
+
+The most obvious way to solve a Yes/No search question is to try every candidate.
+
+For the tiny lock, there are only eight assignments, so brute force feels harmless. That is useful for learning the shape of the problem, but it is not the lesson.
+
+But this toy circuit can get lucky. A larger worst-case instance might hide the first accepting assignment near the end, or might have no accepting assignment at all.
+
+<PnpCircuitFigure lang="en" scenarioId="search-snapshot" />
+
+## Where it breaks
+
+Every extra Boolean input doubles the number of candidate assignments. Checking one candidate still follows the circuit description, but finding a good candidate by blind search can explode.
+
+The slider below uses a scaling thought experiment, not the same three-input circuit. Its point is the shape of the growth: `2^n` candidates versus a polynomial-size check.
+
+<SearchVsCheckGrowthDemo client:load lang="en" />
+
+## The core invention
+
+The core idea is to separate two jobs:
+
+- Finding: produce a solution from scratch.
+- Checking: receive a proposed solution and verify it.
+
+A certificate is extra evidence for a Yes answer. A verifier is the algorithm that checks that evidence. In the lock example, the certificate is one assignment, and the verifier checks the assignment format, evaluates the gates, and accepts only if the output is `1`.
+
+<PnpCircuitFigure lang="en" scenarioId="accepting-certificate" />
+
+One failed candidate only rejects that candidate. It does not prove that no valid certificate exists.
+
+<PnpCircuitFigure lang="en" scenarioId="candidate-comparison" />
+
+## Interactive visual demo
+
+<FindVsCheckDemo client:load lang="en" />
+
+## Decision conversion
+
+Complexity classes usually talk about decision problems: questions with Yes/No answers. Many object-finding or optimization tasks can be converted by adding a threshold.
+
+<PnpDecisionConversionFigure lang="en" />
+
+## Formal version
+
+Here are the definitions this node needs. They are intentionally local and enough to understand `P vs NP`; deeper hardness machinery belongs to later nodes.
+
+A decision problem is a problem whose output is Yes or No.
+
+Polynomial time means the running time is bounded by `O(n^c)` for some constant `c`, where `n` is the input size.
+
+A decision problem is in `P` if it can be solved in polynomial time.
+
+A decision problem is in `NP` if every Yes instance has a certificate whose size is polynomial in the input size, and a polynomial-time verifier can check that certificate.
+
+For the lock example, the input size includes the lock description, not only the number of switches.
+
+<PnpCircuitFigure lang="en" scenarioId="size-scaffold" />
+
+We know `P` is inside `NP`: if you can solve the decision problem quickly, then you can also verify a Yes answer quickly by running the solver. The unknown question is whether every efficiently checkable Yes answer is also efficiently findable.
+
+<PnpSetDiagram lang="en" />
+
+## Implementation sketch
+
+At this level, a verifier has a simple contract: take an instance and a certificate, reject malformed certificates, and then check the claimed property in polynomial time.
+
+```ts
+type Instance = unknown;
+type Certificate = unknown;
+
+function verify(instance: Instance, certificate: Certificate): boolean {
+  if (!certificateHasValidFormat(instance, certificate)) return false;
+  if (!certificateSizeIsPolynomial(instance, certificate)) return false;
+
+  return checkClaimedYesWitness(instance, certificate);
+}
+```
+
+The figure below expands that contract for the tiny lock only: assignment format first, then gate-by-gate evaluation.
+
+<PnpCircuitFigure lang="en" scenarioId="code-trace" />
+
+## Correctness intuition
+
+Why is every problem in `P` also in `NP`? Build a verifier that uses an empty or dummy certificate and runs the polynomial-time solver directly.
+
+This is not the Circuit-SAT verifier. It is a different verifier for a problem that already has a polynomial-time solver.
+
+<PnpCircuitFigure lang="en" scenarioId="p-subset" />
+
+## Complexity
+
+The `P vs NP` question is not "can brute force solve it eventually?" Brute force is an algorithm, but it may take exponential time.
+
+The contrast is:
+
+- `P`: there is a polynomial-time way to find the Yes/No answer.
+- `NP`: for Yes instances, there is a polynomial-size certificate that can be checked in polynomial time.
+
+Blind search over all assignments can take `2^n` trials. One certificate check follows the input and certificate sizes.
+
+The table is a counting model for intuition, not a full encoding-cost proof.
+
+<PnpCircuitFigure lang="en" scenarioId="complexity" />
+
+## Common confusions
+
+`NP` does not mean "not polynomial." It means Yes answers have efficiently checkable certificates.
+
+`P vs NP` is an open question. This node should not imply either `P = NP` or `P != NP`.
+
+This page only needs efficiently checkable Yes certificates. Efficiently checkable No certificates lead to other complexity classes and can wait.
+
+`NP-hard` is not the same as "in `NP`." Hardness is a comparison idea for another node.
+
+<PnpCircuitFigure lang="en" scenarioId="common-confusions" />
+
+## Connections in the graph
+
+This node is self-contained for the meaning of `P`, `NP`, and the question `P = NP?`.
+
+What it does not try to prove:
+
+- Why particular problems are hard.
+- How reductions transfer hardness.
+- Why Circuit-SAT is a central complete problem.
+
+Those are deeper follow-up nodes. Here, Circuit-SAT only appears as a small local example of "candidate assignment as certificate."
+
+## Exercises
+
+<PnpClassifierCards client:load lang="en" />
+
+1. Why does one accepting assignment prove a Yes answer?
+2. Why does one failed assignment not prove a No answer?
+3. What is the difference between solving a decision problem and verifying a certificate?
+4. Why is `P` definitely inside `NP`?

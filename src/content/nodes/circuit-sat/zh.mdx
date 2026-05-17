@@ -1,0 +1,209 @@
+---
+id: circuit-sat
+locale: zh
+title: 电路可满足性
+summary: 判断是否存在某个布尔赋值让电路输出 1，并理解一个赋值为什么是可高效检查的证书。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - complexity
+  - algorithms
+  - np-hardness
+  - satisfiability
+  - circuits
+prerequisites:
+  - p-vs-np
+  - np-hardness
+next:
+  - sat
+createdAt: 2026-05-16
+updatedAt: 2026-05-16
+---
+
+import CircuitSatCircuitFigure from "../../../components/interactive/CircuitSatCircuitFigure";
+import CircuitSatAssignmentGrid from "../../../components/interactive/CircuitSatAssignmentGrid";
+import CircuitSatGrowthStrip from "../../../components/interactive/CircuitSatGrowthStrip";
+import CircuitSatCertificateTrace from "../../../components/interactive/CircuitSatCertificateTrace";
+import CircuitSatMisconceptionCards from "../../../components/interactive/CircuitSatMisconceptionCards";
+import CircuitSatGraphStrip from "../../../components/interactive/CircuitSatGraphStrip";
+import CircuitSatPracticeCards from "../../../components/interactive/CircuitSatPracticeCards";
+import {
+  CircuitSatAssignmentSummary,
+  CircuitSatClaimLedger,
+  CircuitSatCostStack,
+  CircuitSatFormalCard,
+  CircuitSatInvariantRail,
+  CircuitSatSearchCheckBridge,
+  CircuitSatVerifierTable
+} from "../../../components/interactive/CircuitSatSupportFigures";
+
+## 从点亮一盏灯开始
+
+想象一个布尔控制电路（Boolean circuit）。它有四个输入开关 `x1`、`x2`、`x3`、`x4`。每个开关只能是 `0` 或 `1`。逻辑门（gate）如 `AND`、`OR`、`NOT` 会组合这些 bit，最后一条输出线 `z` 控制一盏灯。
+
+判定问题（decision problem）是：
+
+> 是否存在某个开关设置，让 `z = 1`？
+
+<CircuitSatCircuitFigure lang="zh" />
+
+本页始终使用同一个固定电路：
+
+```text
+n1 = NOT x2
+g1 = x1 AND n1
+g2 = x3 OR x4
+g3 = g1 AND g2
+g4 = x2 AND x4
+z  = g3 OR g4
+```
+
+赋值字符串按位置读取：`1010` 表示 `x1=1`、`x2=0`、`x3=1`、`x4=0`。
+
+## 第一个朴素想法：试完所有行
+
+最直接的方法是列出每个赋值，并在每一行上计算电路输出。
+
+<CircuitSatAssignmentGrid client:load lang="zh" />
+
+四个输入只有 `16` 行，所以暴力搜索看起来还可以接受。但这张表不是证书。它是求解器盲目搜索的空间。
+
+<CircuitSatAssignmentSummary lang="zh" />
+
+## 痛点：每加一个输入就翻倍
+
+每增加一个输入，候选行数都会翻倍：
+
+$$
+\text{number of assignments} = 2^n.
+$$
+
+像 `0000` 这样的失败行，只能证明 `0000` 失败。它不能证明不存在满足行。
+
+<CircuitSatGrowthStrip client:load lang="zh" />
+
+## 核心发明：一行可以成为证书
+
+现在把两件事分开：
+
+- 搜索（search）：问是否存在某个满足行。
+- 验证（verification）：接收一行候选赋值并检查它。
+
+如果有人交给我们 `1010`，我们不需要再次搜索整张表。验证器（verifier）先检查它是否给每个输入一位，再按顺序计算逻辑门，最后看 `z` 是否为 `1`。
+
+<CircuitSatSearchCheckBridge lang="zh" />
+
+证书（certificate）是一条被声称的见证。它成功时可以证明 Yes 答案，但它本身不是“找到自己”的方法。
+
+<CircuitSatCertificateTrace client:load lang="zh" />
+
+## Circuit-SAT 的形式化定义
+
+布尔电路是一个有限的有向无环网络，由输入 bit、逻辑门和导线组成。满足赋值（satisfying assignment）是让输出门等于 `1` 的赋值。
+
+令 `$C$` 表示一个有 `$n$` 个输入变量的布尔电路，`$a \in \{0,1\}^n$` 表示一个赋值，`$C(a)$` 表示该赋值下的电路输出。
+
+$$
+C \in \text{Circuit-SAT}
+\quad\Longleftrightarrow\quad
+\exists a \in \{0,1\}^n \text{ such that } C(a)=1.
+$$
+
+直观地说：如果至少有一种输入设置能点亮输出灯，这个电路就是可满足的。
+
+<CircuitSatFormalCard lang="zh" />
+
+## 验证器实现草图
+
+验证器的职责比求解器窄：
+
+```ts
+function verifyCircuitSat(C, certificate) {
+  if (!hasOneBitPerInput(C, certificate)) return false;
+
+  const values = readInputBits(C, certificate);
+  for (const gate of gatesInTopologicalOrder(C)) {
+    values[gate.id] = applyBooleanGate(gate, values);
+  }
+  return values[C.output] === 1;
+}
+```
+
+对格式正确的赋值：
+
+$$
+\text{verify}(C,a)=1 \quad\Longleftrightarrow\quad C(a)=1.
+$$
+
+像 `101` 或 `1020` 这样的格式错误字符串，会在逻辑门计算前被拒绝，所以不把它们当作有意义的电路运行。
+
+<CircuitSatVerifierTable lang="zh" />
+
+## 逻辑门顺序不变量
+
+电路没有环，所以可以按拓扑顺序（topological order）计算：
+
+`validation -> n1 -> g1 -> g2 -> g3 -> g4 -> z -> read final output`。
+
+不变量（invariant）是：
+
+> 每计算完一个逻辑门，已经存储的每个值都等于该输入或逻辑门在当前赋值下的真实布尔值。
+
+<CircuitSatInvariantRail lang="zh" />
+
+这就是验证器可以很简单的原因：它不会猜测缺失的线值，只读取已经计算好的依赖。
+
+## 复杂度
+
+证书每个输入只有一位：
+
+$$
+|a| = n.
+$$
+
+一次验证会检查赋值、计算逻辑门、沿导线读取依赖、最后读取输出：
+
+$$
+\text{one check} = O(|C| + n).
+$$
+
+盲目搜索可能要对每个赋值都重复一次检查：
+
+$$
+\text{brute force search} = O(2^n \cdot |C|).
+$$
+
+<CircuitSatCostStack lang="zh" />
+
+这证明了 `Circuit-SAT in NP`：Yes 实例有多项式大小证书，而且验证器在多项式时间内运行。
+
+## 主张边界
+
+Circuit-SAT 还有一个著名角色：根据 Cook-Levin 定理，它是 NP-hard。本节点只命名这个定理，并预告为什么 Circuit-SAT 会成为后续归约的源问题。
+
+这个小电路、被高亮的满足行、验证器追踪，都**没有**证明 NP-hardness。它们只证明成员关系这一侧：证书可以被高效检查。
+
+<CircuitSatClaimLedger lang="zh" />
+
+## 常见混淆
+
+<CircuitSatMisconceptionCards client:load lang="zh" />
+
+## 图谱连接
+
+`p-vs-np` 提供证书和验证器的语言。`np-hardness` 提供“已知源问题可以启动后续归约链”的思想。
+
+Circuit-SAT 是一般定义之后的第一个具体源问题。后续节点可以把 Circuit-SAT 转向 SAT 形式，但这些节点在真正存在前不会成为图谱链接。
+
+<CircuitSatGraphStrip lang="zh" />
+
+## 练习
+
+<CircuitSatPracticeCards client:load lang="zh" />
+
+1. 在赋值 `1010` 中，哪个逻辑门最先让它看起来有希望？
+2. 为什么 `0000` 不能证明整个电路不可满足？
+3. 为什么 `101` 应该在任何逻辑门计算前停止？
+4. 本页证明了哪条主张：`Circuit-SAT in NP`、`Circuit-SAT is NP-hard`，还是二者都证明？

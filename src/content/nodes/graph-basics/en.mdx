@@ -2,7 +2,7 @@
 id: graph-basics
 locale: en
 title: Graph Basics
-summary: Model pairwise relationships with nodes, edges, and adjacency so algorithms can move through them.
+summary: Model relationships with nodes, edges, and adjacency so search algorithms can move one local step at a time.
 status: draft
 translationStatus: source
 difficulty: beginner
@@ -17,48 +17,105 @@ createdAt: 2026-05-15
 updatedAt: 2026-05-15
 ---
 
+import GraphBasicsFigure from "../../../components/interactive/GraphBasicsFigure";
+import GraphBasicsExplorer from "../../../components/interactive/GraphBasicsExplorer";
+import GraphRepresentationCompare from "../../../components/interactive/GraphRepresentationCompare";
+
 ## Hook problem
 
-Imagine you have a map of rooms connected by doors. You do not care about the shape of each room yet. You care about which rooms can be reached from which other rooms.
+Imagine a building where rooms are connected by doors. You do not need the shape of every room yet. You need a model that answers one small question: from this room, which rooms can I reach in one step?
+
+<GraphBasicsFigure lang="en" scenarioId="room-map" />
 
 ## First naive idea
 
-You might write every possible route as a sentence: "from the lobby, go to the hall, then the lab." That works for one route, but it does not scale when the building changes.
+One direct way to help visitors is to write route cards: "Lobby -> Hall -> Lab" or "Cafe -> Hall -> Lab." For a few trips, that feels clear.
+
+<GraphBasicsFigure lang="en" scenarioId="route-sentences" />
 
 ## Where it breaks
 
-If a new door appears, many route sentences may become outdated. The pain point is that routes mix the raw structure with decisions about how to travel.
+Now add one new door from Cafe to Lab. The building fact changed once, but several advice cards need review. Some advice remains valid, some is stale, and the new direct advice is missing.
+
+<GraphBasicsFigure lang="en" scenarioId="door-change-pain" />
+
+Route cards are human-maintained advice, not an algorithm. The pain is that full routes mix the stable structure with decisions about how to travel.
 
 ## The core invention
 
-A graph separates the structure from the search. A node represents an object, an edge represents a relationship, and adjacency records each node's immediate neighbors.
+A graph stores local relationship facts. A node represents one object, an edge represents one direct relationship, and adjacency records the immediate neighbors of a node.
+
+<GraphBasicsFigure lang="en" scenarioId="modeling-choice" />
 
 ## Interactive visual demo
 
-The first visual question is simple: from one node, which neighbors are directly available? Later algorithms use that same local view to build larger behavior.
+<GraphBasicsExplorer client:load lang="en" />
 
 ## Formal version
 
-A graph is usually written as `G = (V, E)`, where `V` is a set of vertices and `E` is a set of edges. An edge may be directed or undirected, weighted or unweighted.
+A graph is often written as `G = (V, E)`. `V` is the set of vertices or nodes, and `E` is the set of edges. In this page, `Lobby` is a node in `V`, and `Lobby-Hall` is an edge in `E`.
+
+<GraphBasicsFigure lang="en" scenarioId="formal-sets" />
+
+Edges can be undirected or directed. An undirected stored edge like `["lobby", "hall"]` creates two neighbor facts: Lobby lists Hall, and Hall lists Lobby.
 
 ## Implementation sketch
 
+Storing complete route advice is brittle:
+
 ```ts
-const graph = {
+const routeAdvice = [["cafe", "hall", "lab"]];
+```
+
+An adjacency list stores local facts instead:
+
+```ts
+const adjacency = {
   lobby: ["hall", "stairs"],
-  hall: ["lobby", "lab"],
+  hall: ["lobby", "lab", "cafe"],
   lab: ["hall"],
-  stairs: ["lobby"]
+  stairs: ["lobby", "cafe"],
+  cafe: ["hall", "stairs"]
 };
 ```
 
-This adjacency list is compact when each node only touches a few neighbors.
+<GraphBasicsFigure lang="en" scenarioId="route-advice-vs-adjacency" />
+
+## Representation invariant
+
+The representation is correct when every direct door appears according to the chosen convention. For an undirected graph, every door appears in both rooms' adjacency rows.
+
+<GraphBasicsFigure lang="en" scenarioId="adjacency-list" />
+
+## Complexity and tradeoffs
+
+An adjacency list is compact when each node has only a few neighbors. An adjacency matrix is a table lookup: choose a row, choose a column, and read whether a direct edge exists.
+
+<GraphRepresentationCompare client:load lang="en" />
+
+<GraphBasicsFigure lang="en" scenarioId="adjacency-matrix" />
+
+## Directed and weighted variants
+
+A directed edge changes only one row. A weighted edge adds a cost label, but it does not change whether two nodes are adjacent.
+
+<GraphBasicsFigure lang="en" scenarioId="directed-edge" />
+
+<GraphBasicsFigure lang="en" scenarioId="weighted-edge" />
+
+## Common confusions
+
+An edge is one direct connection. A path chains edges. A neighbor is one edge away. A reachable node may need several edges.
+
+<GraphBasicsFigure lang="en" scenarioId="common-confusions" />
 
 ## Connections in the graph
 
-BFS uses adjacency to ask one repeated question: which unvisited neighbors should enter the queue next?
+BFS repeats the graph-basics question: from the current node, which adjacent neighbors can be visited next? Dijkstra later keeps nodes, edges, and adjacency, then adds edge costs to choose the cheapest next frontier.
 
-## Prediction questions
+## Exercises
 
-1. If an edge is directed from `A` to `B`, can you always travel from `B` to `A`?
-2. Which representation is easier to update when one new edge is added: route sentences or an adjacency list?
+1. Which rooms are one-step neighbors of Lobby?
+2. If Cafe -> Lab is a one-way edge, which adjacency row changes?
+3. What is the matrix cell `(Lab, Cafe)` in the base fixture?
+4. Is `Lobby -> Hall -> Lab` one edge or a path?

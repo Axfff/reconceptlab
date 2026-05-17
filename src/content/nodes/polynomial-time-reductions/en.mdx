@@ -1,0 +1,201 @@
+---
+id: polynomial-time-reductions
+locale: en
+title: Polynomial-Time Reductions
+summary: Translate one decision problem into another while preserving Yes and No answers.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: concept
+tags:
+  - complexity
+  - algorithms
+  - reductions
+  - np-hardness
+prerequisites:
+  - p-vs-np
+next: []
+createdAt: 2026-05-16
+updatedAt: 2026-05-16
+---
+
+import PathEncodingTranslatorFigure from "../../../components/interactive/PathEncodingTranslatorFigure";
+import ReductionSolverDirectionWidget from "../../../components/interactive/ReductionSolverDirectionWidget";
+import ReductionTruthTable from "../../../components/interactive/ReductionTruthTable";
+import ReductionQuantifierFigure from "../../../components/interactive/ReductionQuantifierFigure";
+import ReductionProofPipeline from "../../../components/interactive/ReductionProofPipeline";
+import ReductionCostTable from "../../../components/interactive/ReductionCostTable";
+import ReductionHardnessDirectionPreview from "../../../components/interactive/ReductionHardnessDirectionPreview";
+import ReductionChainPreview from "../../../components/interactive/ReductionChainPreview";
+import ReductionMisconceptionCards from "../../../components/interactive/ReductionMisconceptionCards";
+import ReductionPracticeCards from "../../../components/interactive/ReductionPracticeCards";
+import ReductionGraphStrip from "../../../components/interactive/ReductionGraphStrip";
+
+## Hook problem
+
+Suppose you already own a fast solver for reachability when the graph is written as an adjacency map:
+
+```text
+{ A: [B], B: [C], C: [] }, ask: can A reach C?
+```
+
+But the input you receive is an edge list:
+
+```text
+[(A,B), (B,C)], ask: can A reach C?
+```
+
+Do you need a brand-new solver? Maybe not. You can translate the edge-list instance into the adjacency-map instance, call the solver you already trust, and return the same Yes/No answer.
+
+<PathEncodingTranslatorFigure lang="en" variant="hook" />
+
+This page is about that one idea: a fast, answer-preserving instance translator. The example is a format adapter, not a hardness proof.
+
+## First naive confusion
+
+The notation will be `A <=p B`, read as "`A` reduces to `B` in polynomial time." The most common early mistake is to call the wrong solver.
+
+If `A <=p B`, the source instance starts in `A`, the translator produces a `B` instance, and then you need a solver for `B`.
+
+<ReductionSolverDirectionWidget client:load lang="en" />
+
+This direction is algorithm transfer. Hardness-transfer wording comes later, after the proof pipeline and cost model are visible.
+
+## Where it becomes useful
+
+Without the translator, an edge-list reachability question looks like a new problem: write a new parser, a new traversal setup, and a new proof.
+
+With the translator, the work becomes smaller: rearrange the same graph into the representation the existing solver expects, then reuse the solver.
+
+<PathEncodingTranslatorFigure lang="en" variant="pain" />
+
+The same pattern later becomes useful for difficulty evidence. Instead of proving every target problem from scratch, reductions let one doubted source problem feed several targets through translators that preserve Yes and No.
+
+## The core invention
+
+A reduction is not a solver for the source problem. It is a function `f` that changes the instance format or problem setting while preserving the decision answer.
+
+The path example should stay in your head as the main picture. The tiny arithmetic example below is only a compact mechanics fixture for the table and code sketch:
+
+- Source `TwoNumberSum4`: input `a, b`; ask whether `a + b = 4`.
+- Target `TargetSum`: input `a, b, target`; ask whether `a + b = target`.
+- Translator: copy `a` and `b`, then set `target = 4`.
+
+<ReductionTruthTable lang="en" />
+
+Both Yes and No rows matter. A translator that only sends Yes instances to Yes instances is not enough.
+
+## Formal version
+
+For decision problems `A` and `B`, we write `A <=p B` when there is a function `f` such that:
+
+1. `f` can be computed in polynomial time, measured in the source instance's encoding length.
+2. For every source instance `x`, `x in A` iff `f(x) in B`.
+
+Here `in A` means "is a Yes instance of problem `A`." The word `iff` means "if and only if," so the statement includes Yes preservation and No preservation.
+
+<PathEncodingTranslatorFigure lang="en" variant="formal" />
+
+<ReductionQuantifierFigure lang="en" />
+
+The reverse-looking half of `iff` is easy to overread. It is about the paired instance `f(x)`. It does not say every arbitrary instance of `B` came from `A`, and it does not require a reverse translator from `B` back to `A`.
+
+## Proof direction
+
+Once `A <=p B` is established, a polynomial-time solver for `B` gives a polynomial-time solver for `A`:
+
+```ts
+function solveA(x: SourceInstance): boolean {
+  const y = reduceAtoB(x);
+  return solveB(y);
+}
+```
+
+The source solver has exactly four jobs: receive `x`, compute `f(x)`, call the target solver, and return the same Yes/No answer.
+
+<ReductionProofPipeline client:load lang="en" />
+
+## Implementation sketch
+
+For the arithmetic mechanics-only fixture, the translator is deliberately small:
+
+```ts
+function reduceTwoNumberSum4ToTargetSum(source: { a: number; b: number }) {
+  return { a: source.a, b: source.b, target: 4 };
+}
+```
+
+The code is not proving anything hard. It only makes the reduction contract testable: every fixture row has `sourceAnswer(x) === targetAnswer(f(x))`.
+
+| Proof step | Code responsibility |
+|---|---|
+| `receive-source` | accept one source instance `x` |
+| `compute-target` | compute `y = f(x)` in polynomial time |
+| `solve-target` | call the solver for problem `B` on `y` |
+| `return-answer` | return that same Yes/No answer for `x` |
+
+## Correctness intuition
+
+Correctness is the reason the last line may return the target answer as the source answer.
+
+If `x` is a Yes instance of `A`, then `f(x)` is a Yes instance of `B`. If `x` is a No instance of `A`, then `f(x)` is a No instance of `B`. The target solver's answer on `f(x)` is therefore exactly the answer we needed for `x`.
+
+<ReductionQuantifierFigure lang="en" />
+
+Notice what is not being promised: the target solver might know many `B` instances that were never produced by this translator. Those unrelated instances are outside this reduction's correctness claim.
+
+## Complexity
+
+The translator must be fast, and its output must not hide exponential work in a giant target instance.
+
+In the model below, source encoding length is `n`, translator work is `n^2`, the mapped target encoding length is at most `n^2`, and the target solver takes the cube of the target encoding length. The total is `n^2 + (n^2)^3 = n^2 + n^6`, still polynomial.
+
+<ReductionCostTable lang="en" />
+
+The input size is the encoded description length, not the numeric magnitude of a value written in the input. This is why the arithmetic toy is only a mechanics example.
+
+## Hardness preview
+
+The proof above says: `A <=p B` plus a fast solver for `B` gives a fast solver for `A`.
+
+The preview version for hardness evidence uses the same sentence backward as a thought experiment: if a fast solver for `B` existed, the reduction would give a fast solver for `A`; therefore any reason to doubt fast solvers for `A` also applies to `B`.
+
+<ReductionHardnessDirectionPreview lang="en" />
+
+This page does not prove `P != NP`, define NP-hardness formally, or claim the toy examples are hard.
+
+## Named chain preview
+
+Later nodes will instantiate the same preservation contract with real constructions:
+
+<ReductionChainPreview lang="en" />
+
+The arrows above are only a map. The construction details belong to those later nodes.
+
+## Common confusions
+
+<ReductionMisconceptionCards client:load lang="en" />
+
+Keep these boundaries in mind:
+
+- `A <=p B` means a solver for `B` can help solve `A`.
+- A reduction preserves decision answers, not necessarily witness objects.
+- A translator that performs an exponential search is not a polynomial-time reduction.
+- A toy format adapter can teach mechanics without proving hardness.
+
+## Connections in the graph
+
+`P vs NP` supplies the vocabulary of decision problems and polynomial time. This node adds the comparison tool: fast, answer-preserving translations between decision problems.
+
+<ReductionGraphStrip lang="en" />
+
+The next planned node, `np-hardness`, will name the formal hardness-transfer rule. It is not linked as a route yet because that node does not exist in the site.
+
+## Exercises
+
+<ReductionPracticeCards client:load lang="en" />
+
+1. In `A <=p B`, why does the solver call go to `B`?
+2. Why must No instances be preserved, not only Yes instances?
+3. Why is an exponential translator invalid even if the target solver is fast?
+4. What exactly is claimed about target instances outside the image of `f`?

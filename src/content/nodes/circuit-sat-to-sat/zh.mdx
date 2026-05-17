@@ -1,0 +1,200 @@
+---
+id: circuit-sat-to-sat
+locale: zh
+title: 从 Circuit-SAT 到 SAT 的归约
+summary: 通过为每个门设置辅助变量，并加入局部门约束，把电路可满足性实例翻译为 SAT 实例。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - complexity
+  - algorithms
+  - np-hardness
+  - satisfiability
+  - reductions
+  - circuits
+  - logic
+prerequisites:
+  - polynomial-time-reductions
+  - circuit-sat
+  - sat
+next: []
+createdAt: 2026-05-17
+updatedAt: 2026-05-17
+---
+
+import CircuitSatCircuitFigure from "../../../components/interactive/CircuitSatCircuitFigure";
+import CircuitSatToSatReductionTrace from "../../../components/interactive/CircuitSatToSatReductionTrace";
+import {
+  CircuitSatToSatAnswerPreservationCard,
+  CircuitSatToSatAssignmentExtensionStrip,
+  CircuitSatToSatBuilderTable,
+  CircuitSatToSatConsistencyRail,
+  CircuitSatToSatDuplicationStrip,
+  CircuitSatToSatFormalCard,
+  CircuitSatToSatForwardWitnessCard,
+  CircuitSatToSatGateGadgetGallery,
+  CircuitSatToSatBackwardProjectionCard,
+  CircuitSatToSatGraphStrip,
+  CircuitSatToSatInlineExpansionFigure,
+  CircuitSatToSatMisconceptionCards,
+  CircuitSatToSatOutputAssertionCard,
+  CircuitSatToSatVariableRoleLegend,
+  CircuitSatToSatPracticeCards,
+  CircuitSatToSatProblemBridge,
+  CircuitSatToSatSizeStack,
+  CircuitSatToSatTwoDirectionsLedger
+} from "../../../components/interactive/CircuitSatToSatSupportFigures";
+
+这是从电路视图到公式视图的第一座桥：
+
+- 源问题：**Circuit-SAT**
+- 目标问题：**SAT**
+- 承诺：构造后保持 Yes/No 回答不变，且是多项式时间构造
+
+<CircuitSatToSatProblemBridge lang="zh" />
+<CircuitSatToSatAnswerPreservationCard lang="zh" />
+
+共享的源电路与 `circuit-sat` 页面一致：
+
+<CircuitSatCircuitFigure lang="zh" />
+
+赋值字符串按 `x1 x2 x3 x4` 排列。例如 `1010` 表示：
+
+$$
+x1=1,\; x2=0,\; x3=1,\; x4=0.
+$$
+
+## 引子问题：同样的“存在”问题，不同对象
+
+Circuit-SAT 问是否存在输入让 `z=1`，SAT 问是否存在赋值让某个公式为真。
+两者都在问“是否有满足的赋值”，但目标对象不同：一个是门电路，一个是公式。
+
+所以需要一个显式翻译，保证答案保真，而不是靠直觉猜测。
+
+## 朴素尝试：展开成一个大公式
+
+一个直接想法是把每个门表达式一直替换，直到只剩输入。
+
+<CircuitSatToSatInlineExpansionFigure lang="zh" />
+
+语义上是对的，但这会复制共享子电路，难以控制规模。
+
+## 为什么展开不是正确的一般解
+
+Fan-out 本来是电路复用的优势；全量展开会把共享逻辑复制多份。
+
+<CircuitSatToSatDuplicationStrip lang="zh" />
+
+因此我们不直接生成完整展开公式。
+
+## 核心发明：门变量 + 局部门约束
+
+给每个非输入节点加一个辅助变量，用它原来的门名命名：
+
+- `n1`、`g1`、`g2`、`g3`、`g4`、`z`。
+
+每个门发出一条局部约束，强制该辅助变量等于门表达式值。
+页面里我们把两个层次分开：
+
+`blueprint`（阅读用）用 `<->` 写法；  
+`emit`（真正 SAT 实例）只使用 `AND/OR/NOT`。
+
+<CircuitSatToSatGateGadgetGallery lang="zh" />
+<CircuitSatToSatVariableRoleLegend lang="zh" />
+
+## 形式化构造
+
+对每个门 `g`：
+
+$$
+\text{emit}(g) = (\neg g \lor \text{rhs}) \land (\neg \text{rhs} \lor g),
+$$
+
+其中 `rhs` 是该门局部右侧表达式（`AND/OR/NOT`）。
+
+归约公式的构造顺序依赖电路无环性：每个门只依赖输入节点或更早已定义的门。
+
+归约后的公式是：
+
+$$
+\Phi_C = z \land \bigwedge_{g \in Gates(C)} \text{emit}(g).
+$$
+
+<CircuitSatToSatFormalCard lang="zh" />
+
+真正输出到 SAT 的是 `Φ_C`，它只含 `AND/OR/NOT`。
+
+## 赋值扩展与限制
+
+归约后的赋值域比电路多了辅助变量；反向方向会先把 SAT 赋值限制回 `x1..x4`。
+
+<CircuitSatToSatAssignmentExtensionStrip lang="zh" />
+
+## 正确性方向 1：Circuit-SAT ⇒ SAT
+
+若某个电路赋值 `a` 让 `C(a)=1`，我们把门输出一起扩展到 `(x1..x4, n1,g1,g2,g3,g4,z)`。
+每条局部约束都被满足，并且 `z=1`，所以归约后公式 `Φ_C` 也满足。
+
+## 正确性方向 2：SAT ⇒ Circuit-SAT
+
+若某个 SAT 赋值 `b` 满足 `Φ_C`，每条约束都迫使辅助变量等于对应门的真实结果。
+把它限制到 `b|inputs|` 后即可按拓扑顺序重算电路，得到 `z=1`，于是 `C(b|inputs|)=1`。
+
+这是为什么双向都要写清楚。
+
+## 正确性支撑（正向与反向）
+
+<CircuitSatToSatTwoDirectionsLedger lang="zh" />
+<CircuitSatToSatForwardWitnessCard lang="zh" />
+<CircuitSatToSatBackwardProjectionCard lang="zh" />
+
+## 专门的 `AND z` 对照
+
+没有最后的 `AND z` 时，局部门约束可能都真，但输出端是 `0`，会被错误接受。
+
+<CircuitSatToSatOutputAssertionCard lang="zh" />
+
+## 主归约追踪（主演示）
+
+这个追踪显示按拓扑顺序发射局部约束、累计前缀以及最终 `AND z`。
+
+<CircuitSatToSatReductionTrace client:load lang="zh" />
+
+## 实现与不变量
+
+实现上是：每个门输出一个常数规模约束，按拓扑顺序写下，再加最终输出约束。
+
+<CircuitSatToSatBuilderTable lang="zh" />
+<CircuitSatToSatConsistencyRail lang="zh" />
+
+这样就能做到机械化的、一致的构造。
+
+## 复杂度
+
+设 `|C|` 表示该固定电路编码规模。每个非输入节点贡献一个辅助变量和一条常数规模约束，再加最终 `z`。
+
+<CircuitSatToSatSizeStack lang="zh" />
+
+所以 `|Φ_C| = O(|C|)`，是线性规模；这里依赖固定门扇入假设：`AND/OR` 为双输入，`NOT` 为单输入。
+该线性规模结论依赖固定扇入的假设（`AND/OR` 是 2 输入，`NOT` 是 1 输入）。
+
+## 常见混淆
+
+<CircuitSatToSatMisconceptionCards client:load lang="zh" />
+
+## 图谱连接
+
+`polynomial-time-reductions` 提供模板，`circuit-sat` 提供源实例，`sat` 提供目标对象。
+
+<CircuitSatToSatGraphStrip lang="zh" />
+
+## 练习
+
+<CircuitSatToSatPracticeCards client:load lang="zh" />
+
+1. 在共享赋值中，哪些行可作为归约保留答案的例子？
+2. 为什么 `0000` 会被门约束接受却被 `AND z` 拒绝？
+3. 为什么 `<->` 只能当蓝图，不应直接作为最终 SAT 输出语言？
+4. 输入变量和辅助变量分别是哪一类？

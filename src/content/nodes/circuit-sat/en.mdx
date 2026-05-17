@@ -1,0 +1,209 @@
+---
+id: circuit-sat
+locale: en
+title: Circuit-SAT
+summary: Decide whether some Boolean input assignment makes a circuit output 1, and see why one assignment is a checkable certificate.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - complexity
+  - algorithms
+  - np-hardness
+  - satisfiability
+  - circuits
+prerequisites:
+  - p-vs-np
+  - np-hardness
+next:
+  - sat
+createdAt: 2026-05-16
+updatedAt: 2026-05-16
+---
+
+import CircuitSatCircuitFigure from "../../../components/interactive/CircuitSatCircuitFigure";
+import CircuitSatAssignmentGrid from "../../../components/interactive/CircuitSatAssignmentGrid";
+import CircuitSatGrowthStrip from "../../../components/interactive/CircuitSatGrowthStrip";
+import CircuitSatCertificateTrace from "../../../components/interactive/CircuitSatCertificateTrace";
+import CircuitSatMisconceptionCards from "../../../components/interactive/CircuitSatMisconceptionCards";
+import CircuitSatGraphStrip from "../../../components/interactive/CircuitSatGraphStrip";
+import CircuitSatPracticeCards from "../../../components/interactive/CircuitSatPracticeCards";
+import {
+  CircuitSatAssignmentSummary,
+  CircuitSatClaimLedger,
+  CircuitSatCostStack,
+  CircuitSatFormalCard,
+  CircuitSatInvariantRail,
+  CircuitSatSearchCheckBridge,
+  CircuitSatVerifierTable
+} from "../../../components/interactive/CircuitSatSupportFigures";
+
+## Hook problem: turn on the lamp
+
+Imagine a Boolean control circuit. It has four input switches `x1`, `x2`, `x3`, and `x4`. Each switch is either `0` or `1`. Gates such as `AND`, `OR`, and `NOT` combine those bits, and one output wire `z` controls a lamp.
+
+The decision question is:
+
+> Is there any switch setting that makes `z = 1`?
+
+<CircuitSatCircuitFigure lang="en" />
+
+This page uses the same fixture throughout:
+
+```text
+n1 = NOT x2
+g1 = x1 AND n1
+g2 = x3 OR x4
+g3 = g1 AND g2
+g4 = x2 AND x4
+z  = g3 OR g4
+```
+
+Assignment strings are positional: `1010` means `x1=1`, `x2=0`, `x3=1`, `x4=0`.
+
+## First naive idea: try every row
+
+The most direct method is to list every assignment and evaluate the circuit on each row.
+
+<CircuitSatAssignmentGrid client:load lang="en" />
+
+For four inputs, there are only `16` rows, so brute force feels manageable. But the table is not part of the certificate. It is the solver's blind search space.
+
+<CircuitSatAssignmentSummary lang="en" />
+
+## Where it breaks: doubling pain
+
+Every extra input doubles the number of rows:
+
+$$
+\text{number of assignments} = 2^n.
+$$
+
+One failed row, such as `0000`, proves only that `0000` fails. It does not prove that no satisfying row exists.
+
+<CircuitSatGrowthStrip client:load lang="en" />
+
+## Core invention: one row can be a certificate
+
+Now separate two jobs:
+
+- Search asks whether some satisfying row exists.
+- Verification receives one proposed row and checks it.
+
+If someone hands us `1010`, we do not search the table again. We validate that it has one bit per input, evaluate gates in order, and accept if `z=1`.
+
+<CircuitSatSearchCheckBridge lang="en" />
+
+The certificate is one claimed witness. It can prove a Yes answer when it works, but it is not a method for finding itself.
+
+<CircuitSatCertificateTrace client:load lang="en" />
+
+## Formal Circuit-SAT definition
+
+A Boolean circuit is a finite directed acyclic network of input bits, gates, and wires. A satisfying assignment is an assignment that makes the output gate equal `1`.
+
+Let `$C$` be a Boolean circuit with `$n$` input variables, let `$a \in \{0,1\}^n$` be an assignment, and let `$C(a)$` be the output under that assignment.
+
+$$
+C \in \text{Circuit-SAT}
+\quad\Longleftrightarrow\quad
+\exists a \in \{0,1\}^n \text{ such that } C(a)=1.
+$$
+
+In plain language: the circuit is satisfiable if at least one input setting turns the output on.
+
+<CircuitSatFormalCard lang="en" />
+
+## Verifier implementation
+
+The verifier's contract is narrower than solving:
+
+```ts
+function verifyCircuitSat(C, certificate) {
+  if (!hasOneBitPerInput(C, certificate)) return false;
+
+  const values = readInputBits(C, certificate);
+  for (const gate of gatesInTopologicalOrder(C)) {
+    values[gate.id] = applyBooleanGate(gate, values);
+  }
+  return values[C.output] === 1;
+}
+```
+
+For well-formed assignments:
+
+$$
+\text{verify}(C,a)=1 \quad\Longleftrightarrow\quad C(a)=1.
+$$
+
+Malformed strings such as `101` or `1020` are rejected before gate evaluation, so they are not treated as meaningful circuit runs.
+
+<CircuitSatVerifierTable lang="en" />
+
+## Gate-order invariant
+
+The circuit is acyclic, so we can evaluate gates in a topological order:
+
+`validation -> n1 -> g1 -> g2 -> g3 -> g4 -> z -> read final output`.
+
+Invariant:
+
+> After each gate is evaluated, every stored value equals the Boolean value of that input or gate under the assignment.
+
+<CircuitSatInvariantRail lang="en" />
+
+This is why a verifier can be simple. It never guesses a missing wire value; it only reads dependencies that have already been computed.
+
+## Complexity
+
+The certificate has one bit per input:
+
+$$
+|a| = n.
+$$
+
+One verification pass validates the assignment, evaluates the gates, follows the wires, and reads the output:
+
+$$
+\text{one check} = O(|C| + n).
+$$
+
+Blind search may repeat that check for every assignment:
+
+$$
+\text{brute force search} = O(2^n \cdot |C|).
+$$
+
+<CircuitSatCostStack lang="en" />
+
+This proves `Circuit-SAT in NP`: a Yes instance has a polynomial-size certificate, and the verifier runs in polynomial time.
+
+## Claim boundary
+
+Circuit-SAT has a second famous role: by the Cook-Levin theorem, it is NP-hard. This node only names that theorem and previews why Circuit-SAT becomes a source problem for later reductions.
+
+The tiny fixture, the highlighted satisfying row, and the verifier trace do **not** prove NP-hardness. They prove only the membership side: certificates can be checked efficiently.
+
+<CircuitSatClaimLedger lang="en" />
+
+## Common confusions
+
+<CircuitSatMisconceptionCards client:load lang="en" />
+
+## Connections in the graph
+
+`p-vs-np` gives the language of certificates and verifiers. `np-hardness` gives the idea that a known source problem can start later reduction chains.
+
+Circuit-SAT is the first concrete source problem after the general definition. Later nodes can convert Circuit-SAT toward SAT-style formulas, but those nodes are not graph links until they exist.
+
+<CircuitSatGraphStrip lang="en" />
+
+## Exercises
+
+<CircuitSatPracticeCards client:load lang="en" />
+
+1. Which gate first makes assignment `1010` promising?
+2. Why does `0000` not prove the whole circuit is unsatisfiable?
+3. Why should `101` stop before any gate evaluation?
+4. Which claim is proved here: `Circuit-SAT in NP`, `Circuit-SAT is NP-hard`, or both?

@@ -2,7 +2,7 @@
 id: dijkstra
 locale: en
 title: Dijkstra's Algorithm
-summary: Extend the frontier idea to nonnegative weighted graphs by expanding the cheapest known node first.
+summary: Find lowest-cost paths in a nonnegative weighted graph by always settling the cheapest tentative node next.
 status: draft
 translationStatus: source
 difficulty: intermediate
@@ -10,6 +10,7 @@ conceptType: algorithm
 tags:
   - graphs
   - algorithms
+  - shortest-paths
 prerequisites:
   - bfs
 next: []
@@ -17,30 +18,125 @@ createdAt: 2026-05-15
 updatedAt: 2026-05-15
 ---
 
+import DijkstraScenarioFigure from "../../../components/interactive/DijkstraScenarioFigure";
+import DijkstraTraceDemo from "../../../components/interactive/DijkstraTraceDemo";
+
 ## Hook problem
 
-BFS counts edges, but roads often have different travel times. A two-road path can be faster than a one-road path.
+BFS works when every edge costs one step. But roads, links, or choices often have different costs. Now the question is not "how many edges?" but "what is the smallest total cost from `A`?"
+
+<DijkstraScenarioFigure lang="en" scenarioId="hook-weighted-map" />
 
 ## First naive idea
 
-Try BFS anyway and treat every edge as equal.
+Try BFS anyway. It would discover `B` directly from `A` and keep the one-edge path `A -> B`, even though `A -> C -> B` costs less.
+
+<DijkstraScenarioFigure lang="en" scenarioId="bfs-fails" />
 
 ## Where it breaks
 
-The first discovered path is no longer guaranteed to be cheapest when edge weights differ.
+In an unweighted graph, first discovery is enough. In a weighted graph, first discovery by edge count can freeze the wrong parent or cost.
+
+<DijkstraScenarioFigure lang="en" scenarioId="route-cost-compare" />
 
 ## The core invention
 
-Keep a frontier, but choose the unsettled node with the smallest known distance. A priority queue makes that choice efficient.
+Dijkstra keeps a frontier like BFS, but the frontier is ordered by tentative total cost. A FIFO queue pops the oldest entry; a priority queue pops the smallest label.
 
-## Interactive visual to build next
+<DijkstraScenarioFigure lang="en" scenarioId="tentative-table" />
 
-Learners should step through edge relaxation, watch tentative distances change, and predict which node the priority queue will remove next.
+## Relaxation scaffold
+
+Relaxation asks whether going through the current node improves a neighbor. For `C -> B`, the old `dist[B]` is `4`, while `dist[C] + 2 = 3`, so `B` improves and its parent changes to `C`.
+
+<DijkstraScenarioFigure lang="en" scenarioId="relaxation" />
+
+## Interactive visual demo
+
+<DijkstraTraceDemo client:load lang="en" />
 
 ## Formal version
 
-Dijkstra's algorithm solves single-source shortest paths on graphs whose edge weights are nonnegative.
+For every edge `(u, v)`, Dijkstra requires `w(u, v) >= 0`. It keeps a tentative distance `dist[v]`, a `parent[v]`, a settled set of finalized nodes, and a priority queue of candidate entries.
+
+<DijkstraScenarioFigure lang="en" scenarioId="formal-state" />
+
+The algorithm computes distances to all reachable nodes. We inspect `F` later as one recovered path, not because Dijkstra is only a single-target algorithm.
+
+## Implementation sketch
+
+```ts
+function dijkstra(start: NodeId, graph: WeightedGraph) {
+  const dist = new Map<NodeId, number>([[start, 0]]);
+  const parent = new Map<NodeId, NodeId>();
+  const settled = new Set<NodeId>();
+  const heap = new MinHeap([{ node: start, distance: 0 }]);
+
+  while (!heap.isEmpty()) {
+    const entry = heap.popMin();
+    if (entry.distance !== dist.get(entry.node) || settled.has(entry.node)) continue;
+
+    settled.add(entry.node);
+    for (const edge of graph[entry.node]) {
+      const candidate = entry.distance + edge.weight;
+      if (settled.has(edge.to)) continue;
+      if (candidate < (dist.get(edge.to) ?? Infinity)) {
+        dist.set(edge.to, candidate);
+        parent.set(edge.to, entry.node);
+        heap.push({ node: edge.to, distance: candidate });
+      }
+    }
+  }
+
+  return { dist, parent };
+}
+```
+
+Duplicate heap entries are allowed. The stale-entry guard skips an old entry when its distance no longer matches the best known `dist[node]`.
+
+<DijkstraScenarioFigure lang="en" scenarioId="code-trace" />
+
+## Correctness intuition
+
+Just before settling `B`, the heap minimum is `(B, 3)` and every other tentative entry is at least `4`. Any hidden alternative path to `B` through unsettled nodes must first reach the frontier at cost `>= 4`, then add a nonnegative edge. It cannot beat `3`.
+
+<DijkstraScenarioFigure lang="en" scenarioId="correctness-frontier" />
+
+## Complexity
+
+With a binary heap and duplicate entries, each successful relaxation pushes a heap entry. Each heap operation costs `O(log V)`, so the usual bound is `O((V + E) log V)`.
+
+<DijkstraScenarioFigure lang="en" scenarioId="complexity" />
+
+## Common confusions
+
+A priority queue is shown sorted here for reading, but a real heap only promises the next minimum. Old entries can remain in the heap and become stale.
+
+<DijkstraScenarioFigure lang="en" scenarioId="heap-stale-entry" />
+
+Zero-weight edges are allowed. Equal tentative-distance ties can use a deterministic display order, but tie order is not what makes Dijkstra correct.
+
+An unreachable node would keep distance `Infinity` and no parent.
+
+<DijkstraScenarioFigure lang="en" scenarioId="unreachable-node" />
+
+Negative edges break the settled-state promise. This warning uses a separate directed graph, not the main undirected map.
+
+<DijkstraScenarioFigure lang="en" scenarioId="negative-edge-warning" />
+
+## Path recovery
+
+Distances tell the cost. Parent pointers recover a concrete path by following arrows backward from the target and reversing the result.
+
+<DijkstraScenarioFigure lang="en" scenarioId="path-reconstruction" />
 
 ## Connections in the graph
 
-Dijkstra generalizes the BFS frontier from equal-cost edges to nonnegative weighted edges.
+Dijkstra generalizes BFS's frontier-and-distance idea. BFS uses FIFO order because every edge costs one; Dijkstra uses tentative total cost because edges can have different nonnegative weights.
+
+## Exercises
+
+1. After `A` settles, which heap entry should pop next?
+2. Why does `C -> B` update `B`, but the later stale `(B, 4)` is skipped?
+3. Reconstruct the path to `F` from the parent table.
+4. In the directed negative-edge warning, what settled-state promise fails?

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Knowledge Node Design Loop"
+  short_description: "Plan and refine knowledge nodes"
+  default_prompt: "Use $knowledge-node-design-loop to turn this topic into a visually dense, reviewed implementation plan."

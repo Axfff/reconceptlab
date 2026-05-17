@@ -1,0 +1,192 @@
+---
+id: np-hardness
+locale: en
+title: NP-Hardness
+summary: Understand why a problem is NP-hard when every problem in NP can reduce to it.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: concept
+tags:
+  - complexity
+  - algorithms
+  - reductions
+  - np-hardness
+prerequisites:
+  - p-vs-np
+  - polynomial-time-reductions
+next:
+  - circuit-sat
+createdAt: 2026-05-16
+updatedAt: 2026-05-16
+---
+
+import NpHardnessHubFigure from "../../../components/interactive/NpHardnessHubFigure";
+import NpHardnessMeaningCards from "../../../components/interactive/NpHardnessMeaningCards";
+import OneReductionVsUniversalFigure from "../../../components/interactive/OneReductionVsUniversalFigure";
+import NpHardnessQuantifierFigure from "../../../components/interactive/NpHardnessQuantifierFigure";
+import NpHardnessTransitivityBridge from "../../../components/interactive/NpHardnessTransitivityBridge";
+import NpHardnessImplicationDemo from "../../../components/interactive/NpHardnessImplicationDemo";
+import HardnessAnswerPreservationLedger from "../../../components/interactive/HardnessAnswerPreservationLedger";
+import NpHardnessCostStack from "../../../components/interactive/NpHardnessCostStack";
+import MembershipVennCards from "../../../components/interactive/MembershipVennCards";
+import NpHardnessMisconceptionCards from "../../../components/interactive/NpHardnessMisconceptionCards";
+import NpHardnessGraphStrip from "../../../components/interactive/NpHardnessGraphStrip";
+import NpHardnessPracticeCards from "../../../components/interactive/NpHardnessPracticeCards";
+
+## Hook problem: start from the target hub
+
+Imagine a target decision problem `H` and this condition:
+
+> if `H` is NP-hard, every efficiently checkable problem in `NP` should reduce to `H` with a polynomial-time reduction.
+
+That means the question is not about one problem at all — it is about all of `NP` pointing into one target.
+
+<NpHardnessHubFigure lang="en" />
+
+The hub view shows where confusion starts: if rows are drawn, they are **required translation obligations** for the definition. It is not yet a completed hardness proof.
+
+## First naive idea
+
+The word “hard” can sound intuitive:
+
+- Big inputs look hard.
+- Many candidates look hard.
+- Not finding a fast algorithm sounds hard.
+
+These are motivations, but they are not enough to define NP-hardness.
+
+<NpHardnessMeaningCards client:load lang="en" />
+
+## Where it breaks
+
+NP-hardness is about the comparison relation. A single translation is a concrete example, but not the definition.
+
+<OneReductionVsUniversalFigure client:load lang="en" />
+
+For NP-hardness, one source row is only one **witness hint**, not full coverage.
+
+## Core invention: a universal quantifier over sources
+
+To become a universal statement, we need a required family of reductions:
+
+$$
+H \text{ is NP-hard} \quad\Longleftrightarrow\quad
+\forall L \in NP,\; L \le_p H.
+$$
+
+The contract is preservation:
+
+$$
+x \in L \quad\Longleftrightarrow\quad f_L(x) \in H
+$$
+
+For each row you need both directions, so both Yes and No are preserved.
+
+<HardnessAnswerPreservationLedger client:load lang="en" sourceId="circuit-sat-preview" />
+
+<NpHardnessQuantifierFigure client:load lang="en" />
+
+## Transitivity bridge for later proofs
+
+Once a known NP-hard source `A` is available, you do not need to redraw all arrows to `NP` every time.
+
+<NpHardnessTransitivityBridge client:load lang="en" />
+
+From
+
+$$
+\forall L \in NP,\; L \le_p A
+$$
+
+and
+
+$$
+A \le_p H
+$$
+
+you can infer
+
+$$
+\forall L \in NP,\; L \le_p H.
+$$
+
+This is why many later hardness proofs only show one hard known source and one bridge reduction.
+
+## Solver implication pipeline
+
+Read the flow conditionally: if `H` were in `P`, then every source `L` with a valid reduction would also be in `P`.
+
+For each selected source:
+
+```ts
+function solveL(x: L) {
+  const y = reduceLtoH(x);      // f_L(x)
+  return solveH(y);              // assumed to be polynomial
+}
+```
+
+<NpHardnessImplicationDemo client:load lang="en" />
+
+## Correctness intuition
+
+The last pipeline step is where correctness comes from the preservation contract:
+
+- Yes source instance says `x in L`; preservation gives `f_L(x) in H`; solver returns Yes.
+- No source instance says `x notin L`; preservation gives `f_L(x) notin H`; solver returns No.
+
+So returning the target answer is safe only because the reduction preserves both truth values, not only one side.
+
+## Complexity consequence
+
+The consequence formula is:
+
+$$
+\left(\forall L \in NP,\; L \le_p H\right)
+\land \left(H \in P\right)
+\Longrightarrow NP \subseteq P.
+$$
+
+With `P ⊆ NP` from `P vs NP`, we get:
+
+$$
+P \subseteq NP \quad\text{and}\quad NP \subseteq P
+\Longrightarrow P = NP.
+$$
+
+This is a conditional implication. It does not prove `P ≠ NP`; it says “if one NP-hard target were in `P`, then all NP collapses to `P`.”
+
+<NpHardnessCostStack client:load lang="en" />
+
+## NP-hard vs in NP vs NP-complete
+
+NP-hardness is a comparison relation with source reduction obligations.
+
+- `NP-hard` does not automatically imply `in NP`.
+- `NP-hard` + `in NP` is the learner-facing `NP-complete`.
+- Optimization forms, and some outside classes, need separate conversion or separate models.
+
+<MembershipVennCards client:load lang="en" />
+
+## Common confusions
+
+<NpHardnessMisconceptionCards client:load lang="en" />
+
+## Connections in the graph
+
+This node sits after decision complexity and reductions:
+
+`p-vs-np -> polynomial-time-reductions -> np-hardness`.
+
+Later, concrete sources like `Circuit-SAT` will provide the first non-symbolic `A <=p H` proof chain.
+
+<NpHardnessGraphStrip client:load lang="en" />
+
+## Exercises
+
+<NpHardnessPracticeCards client:load lang="en" />
+
+- Which arrow direction transfers hardness?
+- Why is one source row insufficient?
+- Which class labels combine to `NP-complete`?
+- What does `H ∈ P` imply for each source row?

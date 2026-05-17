@@ -2,7 +2,7 @@
 id: dijkstra
 locale: zh
 title: Dijkstra 算法
-summary: 在非负带权图中扩展前沿思想，每次先扩张当前已知代价最低的节点。
+summary: 在非负带权图中，每次确定当前暂定总代价最低的节点，从而找到从起点出发的最低代价路径。
 status: draft
 translationStatus: needs-review
 difficulty: intermediate
@@ -10,6 +10,7 @@ conceptType: algorithm
 tags:
   - graphs
   - algorithms
+  - shortest-paths
 prerequisites:
   - bfs
 next: []
@@ -17,30 +18,125 @@ createdAt: 2026-05-15
 updatedAt: 2026-05-15
 ---
 
+import DijkstraScenarioFigure from "../../../components/interactive/DijkstraScenarioFigure";
+import DijkstraTraceDemo from "../../../components/interactive/DijkstraTraceDemo";
+
 ## 问题从哪里来
 
-BFS 只数边数，但道路常常有不同耗时。两条路组成的路径可能比一条路更快。
+当每条边都只算一步时，BFS 很好用。但道路、网络连接或选择常常有不同代价。现在问题不再是"几条边"，而是"从 `A` 出发的最小总代价是多少"。
+
+<DijkstraScenarioFigure lang="zh" scenarioId="hook-weighted-map" />
 
 ## 第一个朴素想法
 
-仍然使用 BFS，把每条边都当成一样的代价。
+仍然尝试 BFS。它会从 `A` 直接发现 `B`，并保留一条边的路径 `A -> B`，即使 `A -> C -> B` 的总代价更低。
+
+<DijkstraScenarioFigure lang="zh" scenarioId="bfs-fails" />
 
 ## 它为什么会痛
 
-当边权不同时，第一次发现的路径不一定总代价最低。
+在无权图中，第一次发现就足够。在带权图中，按边数第一次发现可能冻结错误的父节点或代价。
+
+<DijkstraScenarioFigure lang="zh" scenarioId="route-cost-compare" />
 
 ## 核心发明
 
-保留前沿（frontier），但每次选择当前已知距离最小的未确定节点。优先队列（priority queue）让这个选择更高效。
+Dijkstra 保留 BFS 的前沿思想，但前沿按暂定总代价排序。普通队列弹出最早进入的条目；优先队列（priority queue）弹出标签最小的条目。
 
-## 下一步要做的互动可视化
+<DijkstraScenarioFigure lang="zh" scenarioId="tentative-table" />
 
-学习者应该能逐步观察松弛（relaxation）过程，看暂定距离如何变化，并预测优先队列下一次会取出哪个节点。
+## 松弛脚手架
+
+松弛（relaxation）会问：经过当前节点能不能改善某个邻居？对于 `C -> B`，旧的 `dist[B]` 是 `4`，而 `dist[C] + 2 = 3`，所以 `B` 被改善，父节点改为 `C`。
+
+<DijkstraScenarioFigure lang="zh" scenarioId="relaxation" />
+
+## 互动可视化
+
+<DijkstraTraceDemo client:load lang="zh" />
 
 ## 形式化版本
 
-Dijkstra 算法解决非负边权图上的单源最短路径问题。
+对于每条边 `(u, v)`，Dijkstra 要求 `w(u, v) >= 0`。算法维护暂定距离 `dist[v]`、父节点 `parent[v]`、已确定节点集合，以及候选条目的优先队列。
+
+<DijkstraScenarioFigure lang="zh" scenarioId="formal-state" />
+
+算法会计算所有可达节点的距离。后面检查 `F` 只是为了演示如何恢复一条路径，并不是说 Dijkstra 只能处理单个目标。
+
+## 实现草图
+
+```ts
+function dijkstra(start: NodeId, graph: WeightedGraph) {
+  const dist = new Map<NodeId, number>([[start, 0]]);
+  const parent = new Map<NodeId, NodeId>();
+  const settled = new Set<NodeId>();
+  const heap = new MinHeap([{ node: start, distance: 0 }]);
+
+  while (!heap.isEmpty()) {
+    const entry = heap.popMin();
+    if (entry.distance !== dist.get(entry.node) || settled.has(entry.node)) continue;
+
+    settled.add(entry.node);
+    for (const edge of graph[entry.node]) {
+      const candidate = entry.distance + edge.weight;
+      if (settled.has(edge.to)) continue;
+      if (candidate < (dist.get(edge.to) ?? Infinity)) {
+        dist.set(edge.to, candidate);
+        parent.set(edge.to, entry.node);
+        heap.push({ node: edge.to, distance: candidate });
+      }
+    }
+  }
+
+  return { dist, parent };
+}
+```
+
+允许重复的堆条目。过期条目保护会跳过那些距离已经不等于当前最佳 `dist[node]` 的旧条目。
+
+<DijkstraScenarioFigure lang="zh" scenarioId="code-trace" />
+
+## 正确性直觉
+
+在确定 `B` 之前，堆中最小项是 `(B, 3)`，其他暂定条目至少是 `4`。任何经过未确定节点到达 `B` 的隐藏替代路径，都必须先以 `>= 4` 的代价到达前沿，再加上一条非负边。它不可能小于 `3`。
+
+<DijkstraScenarioFigure lang="zh" scenarioId="correctness-frontier" />
+
+## 复杂度
+
+使用二叉堆并允许重复条目时，每次成功松弛都会压入一个堆条目。每个堆操作需要 `O(log V)`，所以常见界是 `O((V + E) log V)`。
+
+<DijkstraScenarioFigure lang="zh" scenarioId="complexity" />
+
+## 常见混淆
+
+这里为了阅读把优先队列按顺序展示，但真实堆只保证下一次取出的最小项。旧条目可以留在堆里，并在之后变成过期条目。
+
+<DijkstraScenarioFigure lang="zh" scenarioId="heap-stale-entry" />
+
+零权边是允许的。相同暂定距离可以用确定的显示顺序处理，但平局顺序不是 Dijkstra 正确性的来源。
+
+不可达节点会保持距离 `Infinity`，且没有父节点。
+
+<DijkstraScenarioFigure lang="zh" scenarioId="unreachable-node" />
+
+负边会破坏"已确定就是最终"这个承诺。这个警示使用单独的有向图，不是主无向地图。
+
+<DijkstraScenarioFigure lang="zh" scenarioId="negative-edge-warning" />
+
+## 路径恢复
+
+距离告诉总代价。父节点指针可以从目标反向追踪，再反转结果，从而恢复具体路径。
+
+<DijkstraScenarioFigure lang="zh" scenarioId="path-reconstruction" />
 
 ## 图谱连接
 
-Dijkstra 把 BFS 在等代价边上的前沿扩张，推广到非负带权边。
+Dijkstra 推广了 BFS 的前沿和距离思想。BFS 使用先进先出，是因为每条边代价相同；Dijkstra 使用暂定总代价，是因为边可以有不同的非负权重。
+
+## 预测练习
+
+1. `A` 确定之后，堆中哪个条目应该下一个弹出？
+2. 为什么 `C -> B` 会更新 `B`，但之后过期的 `(B, 4)` 会被跳过？
+3. 根据父节点表恢复到 `F` 的路径。
+4. 在有向负边警示中，哪个"已确定状态"的承诺失效了？

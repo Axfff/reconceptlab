@@ -1,0 +1,206 @@
+---
+id: sat
+locale: zh
+title: 布尔可满足性（SAT）
+summary: 判断是否存在某个真值赋值让布尔公式为真，并区分“寻找赋值”和“检查一个赋值”。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - complexity
+  - algorithms
+  - np-hardness
+  - satisfiability
+  - logic
+prerequisites:
+  - p-vs-np
+  - circuit-sat
+next: []
+createdAt: 2026-05-17
+updatedAt: 2026-05-17
+---
+
+import SatFormulaRuleFigure from "../../../components/interactive/SatFormulaRuleFigure";
+import SatAssignmentGrid from "../../../components/interactive/SatAssignmentGrid";
+import SatGrowthStrip from "../../../components/interactive/SatGrowthStrip";
+import SatSearchToVerifierBridge from "../../../components/interactive/SatSearchToVerifierBridge";
+import SatEvaluationTrace from "../../../components/interactive/SatEvaluationTrace";
+import SatMisconceptionCards from "../../../components/interactive/SatMisconceptionCards";
+import SatGraphStrip from "../../../components/interactive/SatGraphStrip";
+import SatPracticeCards from "../../../components/interactive/SatPracticeCards";
+import {
+  SatAssignmentSummary,
+  SatClaimLedger,
+  SatCostStack,
+  SatEvaluationTable,
+  SatFormalCard,
+  SatSubformulaInvariantRail,
+  SatVocabularyLegend
+} from "../../../components/interactive/SatSupportFigures";
+
+## 引子问题：让规则为真
+
+想象一个警报不是由电路图控制，而是由一条写下来的规则控制。四个开关 `x1`、`x2`、`x3`、`x4` 各自只能取 `0` 或 `1`。这条规则是一个布尔公式（Boolean formula）：
+
+```text
+phi = (x1 AND NOT x2 AND (x3 OR x4)) OR (x2 AND x4)
+```
+
+判定问题是：
+
+> 是否存在某个开关设置，让 `phi` 求值为 true？
+
+<SatFormulaRuleFigure lang="zh" />
+
+赋值（assignment）字符串按 `x1 x2 x3 x4` 的顺序写。比如 `1010` 表示 `x1=1`、`x2=0`、`x3=1`、`x4=0`。
+
+<SatVocabularyLegend lang="zh" />
+
+## 第一个朴素想法：逐行尝试
+
+最直接的方法是列出真值表（truth table），然后一行一行测试。
+
+<SatAssignmentGrid client:load lang="zh" />
+
+这个四变量例子只有 `16` 行，所以暴力搜索看起来不痛。但表格是搜索空间，不是证书。
+
+<SatAssignmentSummary lang="zh" />
+
+## 痛点：每加一个变量就翻倍
+
+每增加一个变量，可能赋值数都会翻倍：
+
+$$
+\text{number of assignments} = 2^n.
+$$
+
+像 `0000` 这样的 false 行，只证明 `0000` 失败。它不能证明不存在满足赋值（satisfying assignment）。
+
+<SatGrowthStrip client:load lang="zh" />
+
+## 核心发明：一个赋值可以当证书
+
+现在把两个任务分开：
+
+- 搜索问：是否存在某个满足赋值？
+- 验证接收一个候选赋值，然后检查它。
+
+如果有人交给我们 `1010`，我们不必重新扫描整张表。我们先验证字符串是否给每个变量正好一位，再求值公式树，最后看根节点是否为 true。
+
+<SatSearchToVerifierBridge lang="zh" />
+
+证书（certificate）是一条被声称的 Yes 见证。它成功时能证明答案是 Yes，但它本身不是“找到自己”的方法。
+
+<SatEvaluationTrace client:load lang="zh" />
+
+## SAT 的形式化定义
+
+布尔公式由变量（variable）、文字（literal）和 `AND`、`OR`、`NOT` 这样的运算符（operator）构成。满足赋值是让整个公式为 true 的赋值。
+
+设 `$\varphi$` 是一个含变量 `$x_1,\dots,x_n$` 的布尔公式。设 `$a \in \{0,1\}^n$` 是一个赋值，`$\varphi(a)$` 表示在该赋值下公式的真值。
+
+$$
+\varphi \in \text{SAT}
+\quad\Longleftrightarrow\quad
+\exists a \in \{0,1\}^n \text{ such that } \varphi(a)=1.
+$$
+
+换成普通话说：如果至少有一种真值设置让整个表达式为真，这个公式就是可满足的。
+
+<SatFormalCard lang="zh" />
+
+## 验证器实现
+
+验证器（verifier）的职责比求解器窄：
+
+```ts
+function verifySat(phi, certificate) {
+  if (!hasOneBitPerVariable(phi, certificate)) return false;
+
+  const assignment = readAssignmentBits(phi, certificate);
+  const rootValue = evaluateFormulaTree(phi.root, assignment);
+  return rootValue === true;
+}
+```
+
+对于格式正确的赋值：
+
+$$
+\text{verify}(\varphi,a)=1
+\quad\Longleftrightarrow\quad
+\varphi(a)=1.
+$$
+
+像 `101` 或 `1020` 这样的格式错误字符串，会在公式求值前被拒绝。它们不是“求值为 false 的普通行”。
+
+<SatEvaluationTable lang="zh" />
+
+## 子公式不变量
+
+求值器自底向上走表达式树：
+
+`validation -> x1-left -> x2-left -> not-x2-left -> x3-left -> x4-left -> or-x3-x4 -> and-left -> x2-right -> x4-right -> and-right -> or-root -> final`。
+
+不变量：
+
+> 每求值完一个子公式，已存储的每个值都等于该子公式在当前赋值下的真实真值。
+
+<SatSubformulaInvariantRail lang="zh" />
+
+这就是为什么检查很直接。验证器不会猜父节点的值；它先算子节点，再应用父节点运算符。
+
+## 复杂度
+
+证书为每个变量提供一位：
+
+$$
+|a| = n.
+$$
+
+在这个例子里，公式大小统计变量出现位置和运算符节点。按照本页使用的 n 元 `AND` / `OR` 约定，`|\varphi| = 11`：六个变量出现位置加五个运算符节点。
+
+一次验证会检查赋值格式、求值一次公式树、读取根节点：
+
+$$
+\text{one check} = O(|\varphi| + n).
+$$
+
+盲目搜索可能对每个赋值都重复一次公式检查：
+
+$$
+\text{brute force search} = O(2^n \cdot |\varphi|).
+$$
+
+<SatCostStack lang="zh" />
+
+这证明了 `SAT in NP`：Yes 实例有一个每变量一位的证书，而且验证器关于公式大小以多项式时间运行。
+
+## 主张边界
+
+SAT 也因为 NP-complete 而有名，但本页不证明困难性或完备性。那条证明路线需要归约、CNF 和 3SAT 等范式，以及更多证明工具。
+
+这个小例子、满足行 `1010`、验证器追踪，只证明成员关系这一侧：候选赋值可以被高效检查。
+
+<SatClaimLedger lang="zh" />
+
+## 常见混淆
+
+<SatMisconceptionCards client:load lang="zh" />
+
+## 图谱连接
+
+`p-vs-np` 提供证书和验证器的语言。`circuit-sat` 在门电路上问同一种“是否存在满足赋值”的问题。SAT 是它的公式版本：对象现在是一棵布尔表达式树。
+
+后续节点可以解释电路如何变成公式或约束、为什么 CNF 重要、3SAT 如何进入归约证明。这些是未来节点，不是理解本页的隐藏前置条件。
+
+<SatGraphStrip lang="zh" />
+
+## 练习
+
+<SatPracticeCards client:load lang="zh" />
+
+1. 对赋值 `1010`，哪个子公式最先让它看起来有希望？
+2. 为什么 `0000` 不能证明 `phi` 不可满足？
+3. 为什么 `101` 应该在任何公式树求值前停止？
+4. 本页证明了哪条主张：`SAT in NP`、`SAT is NP-hard`，还是两者都证明了？

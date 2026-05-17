@@ -1,0 +1,209 @@
+---
+id: circuit-sat-to-sat
+locale: en
+title: Reducing Circuit-SAT to SAT
+summary: Convert a Boolean circuit into a SAT instance by naming each gate output and adding local constraints.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - complexity
+  - algorithms
+  - np-hardness
+  - satisfiability
+  - reductions
+  - circuits
+  - logic
+prerequisites:
+  - polynomial-time-reductions
+  - circuit-sat
+  - sat
+next: []
+createdAt: 2026-05-17
+updatedAt: 2026-05-17
+---
+
+import CircuitSatCircuitFigure from "../../../components/interactive/CircuitSatCircuitFigure";
+import CircuitSatToSatReductionTrace from "../../../components/interactive/CircuitSatToSatReductionTrace";
+import {
+  CircuitSatToSatAnswerPreservationCard,
+  CircuitSatToSatAssignmentExtensionStrip,
+  CircuitSatToSatBuilderTable,
+  CircuitSatToSatConsistencyRail,
+  CircuitSatToSatDuplicationStrip,
+  CircuitSatToSatFormalCard,
+  CircuitSatToSatForwardWitnessCard,
+  CircuitSatToSatGateGadgetGallery,
+  CircuitSatToSatBackwardProjectionCard,
+  CircuitSatToSatGraphStrip,
+  CircuitSatToSatInlineExpansionFigure,
+  CircuitSatToSatMisconceptionCards,
+  CircuitSatToSatOutputAssertionCard,
+  CircuitSatToSatVariableRoleLegend,
+  CircuitSatToSatPracticeCards,
+  CircuitSatToSatProblemBridge,
+  CircuitSatToSatSizeStack,
+  CircuitSatToSatTwoDirectionsLedger
+} from "../../../components/interactive/CircuitSatToSatSupportFigures";
+
+This node is the first concrete bridge from the circuit view to the formula view:
+
+- source object: **Circuit-SAT**
+- target object: **SAT**
+- promise: same Yes/No answer after polynomial-time construction
+
+<CircuitSatToSatProblemBridge lang="en" />
+<CircuitSatToSatAnswerPreservationCard lang="en" />
+
+For context, the shared fixture is the same source circuit from Circuit-SAT:
+
+<CircuitSatCircuitFigure lang="en" />
+
+The four input string positions are `x1 x2 x3 x4`. For example, `1010` means:
+
+$$
+x1=1,\; x2=0,\; x3=1,\; x4=0.
+$$
+
+## Hook problem: same search, different object
+
+Circuit-SAT asks whether a fixed circuit can output `z=1` on some input.
+SAT asks whether a Boolean formula can evaluate to `1` on some assignment.
+
+Both questions are existence questions over four input bits, but SAT takes a formula.
+So we need an explicit translation that preserves acceptance.
+
+## Naive attempt: inline whole formulas
+
+One obvious idea is to expand every gate expression until only input names remain.
+
+<CircuitSatToSatInlineExpansionFigure lang="en" />
+
+That does preserve meaning, but it can duplicate shared subcircuits and hides the size argument.
+
+## Why naive expansion is the wrong general move
+
+Fan-out should be a strength of circuits, but full substitution repeats shared logic.
+
+<CircuitSatToSatDuplicationStrip lang="en" />
+
+That is exactly why we avoid substituting into one giant formula before we know the size.
+
+## Core invention: local gate variables + local consistency constraints
+
+Give each non-input circuit node a helper variable named by the *same gate id*:
+
+- `n1`, `g1`, `g2`, `g3`, `g4`, `z`.
+
+For each gate, emit one local constraint that forces the helper equal to the gate expression.
+In the page logic, we keep this split explicit:
+
+`blueprint`: readable form with `<->` (not emitted as-is), and  
+`emit`: actual emitted form in `AND/OR/NOT` only.
+
+<CircuitSatToSatGateGadgetGallery lang="en" />
+<CircuitSatToSatVariableRoleLegend lang="en" />
+
+## Formal reduction sketch
+
+For each gate `g`:
+
+$$
+\text{emit}(g) = (\neg g \lor \text{rhs}) \land (\neg \text{rhs} \lor g),
+$$
+
+where `rhs` is the gate’s local `AND`, `OR`, or `NOT` expression.
+
+The reduced formula is valid in that order because the source circuit is acyclic,
+so every gate input has already been defined by a source input or earlier gate.
+
+The reduced formula is:
+
+$$
+\Phi_C = z \land \bigwedge_{g \in Gates(C)} \text{emit}(g).
+$$
+
+<CircuitSatToSatFormalCard lang="en" />
+
+The important point is that `Φ_C` itself uses only `AND`, `OR`, and `NOT` constraints.
+
+## Assignment extension and projection
+
+The reduction outputs a different assignment vocabulary than Circuit-SAT:
+helper names are added for non-input nodes, and backward reasoning will project back.
+
+<CircuitSatToSatAssignmentExtensionStrip lang="en" />
+
+## Correctness direction 1: Circuit-SAT → SAT
+
+If a circuit assignment `a` makes `C(a)=1`, extend it with all gate helper values.
+Every local gate constraint is satisfied by that extension, and `z=1` is added:
+so `Φ_C` is satisfiable under the extended assignment.
+
+## Correctness direction 2: SAT → Circuit-SAT
+
+If a formula assignment `b` satisfies `Φ_C`, each emitted gate constraint
+forces every helper to match the corresponding gate output.
+Reading only `b|inputs|` gives an input row where `z=1`, so `C(b|inputs|)=1`.
+
+That is why both directions are checked in one reduction proof.
+
+<CircuitSatToSatTwoDirectionsLedger lang="en" />
+<CircuitSatToSatForwardWitnessCard lang="en" />
+<CircuitSatToSatBackwardProjectionCard lang="en" />
+
+## Dedicated output assertion contrast
+
+Local consistency can be true with `z=0`; this would be incorrectly accepted
+without the final `AND z`.
+
+<CircuitSatToSatOutputAssertionCard lang="en" />
+
+This is exactly the `AND z` contrast: it enforces acceptance, not just consistency.
+
+## Master reduction trace over the fixture
+
+Use this master demo to watch gate emission, emitted-prefix growth, and the final check.
+
+<CircuitSatToSatReductionTrace client:load lang="en" />
+
+## Implementation and invariant
+
+Implementation emits one gadget per gate in topological order, then the final `z`.
+
+<CircuitSatToSatBuilderTable lang="en" />
+<CircuitSatToSatConsistencyRail lang="en" />
+
+This is deterministic and linear in gate count.
+
+## Complexity
+
+Let `|C|` count the circuit’s nodes and wiring constants in the fixed encoding.
+Each non-input node adds one helper variable and one constant-size gadget.
+One final output clause (`z`) is added.
+
+<CircuitSatToSatSizeStack lang="en" />
+
+So `|Φ_C| = O(|C|)`: one emitted constraint per gate plus one assertion.
+This linear claim uses fixed fan-in gadgets (`AND/OR` with two inputs, `NOT` with one), so each emitted gate encoding stays constant-size.
+
+## Common confusions and checks
+
+<CircuitSatToSatMisconceptionCards client:load lang="en" />
+
+## Connections
+
+`sat` supplies the target language; `polynomial-time-reductions` supplies the proof pattern;
+`circuit-sat` supplies the shared source fixture.
+
+<CircuitSatToSatGraphStrip lang="en" />
+
+## Exercises
+
+<CircuitSatToSatPracticeCards client:load lang="en" />
+
+1. Which rows from the shared fixture witness the reduction as preserving Yes/No answers?
+2. Why is `0000` accepted by all gate constraints but rejected by `Φ_C`?
+3. Why can’t `<->` be the emitted final formula language for SAT?
+4. What are inputs, and what are helper variables?

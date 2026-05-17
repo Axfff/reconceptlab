@@ -1,0 +1,182 @@
+---
+id: bentley-ottmann
+locale: zh
+title: Bentley-Ottmann 扫描线算法
+summary: 从左到右扫描线段，只在局部相邻关系变化时检查候选交点，从而报告所有交点。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - geometry
+  - algorithms
+  - sweep-line
+prerequisites:
+  - closest-pair-divide-and-conquer
+  - graham-scan
+next: []
+createdAt: 2026-05-16
+updatedAt: 2026-05-16
+---
+
+import BentleyOttmannDemo from "../../../components/interactive/BentleyOttmannDemo";
+import BentleyOttmannScenarioFigure from "../../../components/interactive/BentleyOttmannScenarioFigure";
+
+## 问题从哪里来
+
+假设几张地图图层都被画成线段：道路、河流、规划路径和边界。我们不只是想知道“是否存在交点”。我们需要报告所有相交的线段对。
+
+<BentleyOttmannScenarioFigure lang="zh" scenarioId="hook-map" />
+
+这个区别很重要。判定问题（decision problem）找到第一个交点就可以停下；报告问题（reporting problem）必须继续，直到输出列表完整。
+
+## 第一个朴素想法
+
+最直接的算法是检查每一对线段。如果有 `n` 条线段，就要做 `n(n - 1) / 2` 次相交测试。
+
+<BentleyOttmannScenarioFigure lang="zh" scenarioId="naive-pair-matrix" />
+
+这个方法正确，而且最坏情况下确实可能有 `Theta(n^2)` 个交点。但很多输入的真实交点数远小于所有可能线段对。
+
+## 它为什么会痛
+
+即使输出很小，暴力算法也会做同样多的成对检查。Bentley-Ottmann 的目标是输出敏感（output-sensitive）的运行时间：工作量同时依赖输入规模 `n` 和报告出来的交点数 `k`。
+
+<BentleyOttmannScenarioFigure lang="zh" scenarioId="output-sensitive-count" />
+
+新的问题是：能不能发现真正重要的线段对，而不是让每条活跃线段都和其他所有活跃线段比较？
+
+## 核心发明
+
+想象一条竖直扫描线（sweep line）从左向右移动。它看起来连续移动，但算法只在事件（event）处停下：某条线段开始、某条线段结束，或两条活跃线段相交。
+
+<BentleyOttmannScenarioFigure lang="zh" scenarioId="sweep-snapshot" />
+
+在某个扫描位置，如果扫描线穿过一条线段，这条线段就是活跃线段（active segment）。扫描线状态（sweep-line status）把活跃线段按从上到下的顺序保存。两个相邻事件之间，这个垂直顺序不会改变。
+
+另一个工作结构是未来事件队列（future event queue）：一开始放入所有端点事件，扫描过程中再加入新发现的交点事件。
+
+## 相邻线段规则
+
+状态发生变化时，真正改变的是局部邻居关系。如果一条线段插入两个旧邻居之间，旧邻居不再相邻，而新线段最多只需要和上下两个新邻居测试。
+
+<BentleyOttmannScenarioFigure lang="zh" scenarioId="adjacent-rule-left-c" />
+
+规则是：每当两条线段在状态表中变成相邻，就测试它们是否会在当前扫描线右侧相交。如果会，就把这个交点加入未来事件队列。
+
+## 互动可视化
+
+<BentleyOttmannDemo client:load lang="zh" />
+
+演示采用主动清理过期事件（eager stale-event cleanup）。一个预定交点只有在两条线段当前仍然相邻时才留在队列中。如果另一个事件把它们分开，这个预定事件会被标记并移除。
+
+## 事件如何处理
+
+遇到左端点时，把线段插入状态表，移除旧的上下邻居对对应的预定事件，然后测试新产生的两个邻居对。
+
+<BentleyOttmannScenarioFigure lang="zh" scenarioId="left-event-card" />
+
+遇到右端点时，删除这条线段。如果被删线段同时有上邻居和下邻居，那么这两个邻居会变成相邻，需要测试。在固定轨迹中，`B` 离开时位于最下方，所以不会产生新的线段对。
+
+<BentleyOttmannScenarioFigure lang="zh" scenarioId="right-event-card" />
+
+遇到交点事件时，报告这对线段，交换它们在状态表中的顺序，移除不再相邻的预定事件，并测试新的外侧邻居对。
+
+<BentleyOttmannScenarioFigure lang="zh" scenarioId="intersection-event-card" />
+
+事件前的状态按事件 x 坐标左侧来读；事件后的状态按右侧来读。这样即使两条线段在交点处有相同的 y 值，顺序也不会含糊。
+
+## 形式化版本
+
+给定线段集合 `S`，先把每条线段的左端点和右端点事件加入优先队列（priority queue）。扫描线状态一开始为空。
+
+本页把这些操作当作工具：
+
+- `extractMin` 取出最靠左的未来事件。
+- `status.insert`、`status.delete`、`status.swapAdjacent` 更新活跃线段顺序。
+- `above` 和 `below` 找到状态表中紧邻的上方/下方线段。
+- `testAndSchedule(a, b)` 计算两个候选邻居是否相交，并且只在交点严格位于当前扫描线右侧、且在线段范围内时加入事件。
+
+## 实现草图
+
+```ts
+while (!queue.isEmpty()) {
+  const event = queue.extractMin();
+  sweepX = event.x;
+
+  if (event.type === "left") {
+    const s = event.segment;
+    const aboveBefore = status.aboveInsertionPoint(s);
+    const belowBefore = status.belowInsertionPoint(s);
+    status.insert(s);
+    queue.removeIfScheduled(aboveBefore, belowBefore);
+    testAndSchedule(aboveBefore, s);
+    testAndSchedule(s, belowBefore);
+  }
+
+  if (event.type === "right") {
+    const s = event.segment;
+    const above = status.above(s);
+    const below = status.below(s);
+    status.delete(s);
+    testAndSchedule(above, below);
+  }
+
+  if (event.type === "intersection") {
+    const [a, b] = event.pair;
+    if (!status.areAdjacent(a, b)) continue;
+
+    const upperBefore = status.upperOfPair(a, b);
+    const lowerBefore = status.lowerOfPair(a, b);
+    const aboveOuter = status.above(upperBefore);
+    const belowOuter = status.below(lowerBefore);
+
+    report(a, b);
+    queue.removeIfScheduled(aboveOuter, upperBefore);
+    queue.removeIfScheduled(lowerBefore, belowOuter);
+    status.swapAdjacent(upperBefore, lowerBefore);
+
+    testAndSchedule(aboveOuter, lowerBefore);
+    testAndSchedule(upperBefore, belowOuter);
+  }
+}
+```
+
+交点分支里的相邻检查是防御性的。按照主动清理策略，它本来应该总是通过；但如果队列实现有 bug，这个检查可以避免误报告过期事件。
+
+## 正确性直觉
+
+为什么只测试相邻线段就够了？
+
+<BentleyOttmannScenarioFigure lang="zh" scenarioId="correctness-frames" />
+
+设 `p` 是未来某两条线段的真实交点，`q` 是 `p` 之前的上一个事件。`q` 和 `p` 之间没有事件，所以没有第三条线段能在这个开区间内开始、结束或与其他线段交叉。就在扫描线到达 `p` 前，这两条即将相交的线段一定相邻。因此在处理完 `q` 后，它们就已经相邻，算法会测试这对相邻线段并把 `p` 加入队列。
+
+## 复杂度
+
+端点事件有 `2n` 个，报告的交点事件有 `k` 个。每个事件只改变常数个邻居关系，因此只做常数次状态表和队列操作。
+
+<BentleyOttmannScenarioFigure lang="zh" scenarioId="complexity-ledger" />
+
+如果状态表使用平衡有序集合，事件队列支持按 id 删除，那么每次操作是 `O(log n)`。总时间复杂度是 `O((n + k) log n)`。
+
+主动清理版本需要事件 id 或句柄，才能在对数时间内删除预定事件。普通堆也可以采用“取出时再跳过过期事件”的惰性策略，但那样队列可视化会不同。
+
+## 常见混淆
+
+活跃不表示“正在和别的线段相交”。它只表示当前扫描线穿过这条线段。
+
+预定不等于已报告。交点只有在对应事件从队列中取出时才会被报告。
+
+一般位置假设隐藏了很多并列情况：本页假设没有竖直线段、没有相同 x 坐标的事件、没有端点落在另一条线段上，也没有三条线段交于同一点。
+
+## 图谱连接
+
+最近点对分治和 Bentley-Ottmann 都利用几何结构避免朴素成对检查。Graham 扫描和 Bentley-Ottmann 都维护几何顺序，但 Graham 扫描使用静态的极角顺序，而 Bentley-Ottmann 维护会随事件变化的动态扫描顺序。
+
+## 预测练习
+
+1. 在 `left-C`，为什么旧的 `A-B` 事件会被移除？
+2. 报告 `A-C` 之后，为什么 `B-C` 会变成过期事件？
+3. 在演示中，哪个事件让 `B-C` 再次被加入队列？
+4. 如果两个事件的 x 坐标完全相同，需要增加什么规则？

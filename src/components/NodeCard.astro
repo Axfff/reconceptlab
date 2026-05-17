@@ -21,13 +21,23 @@ const { entry, lang } = Astro.props;
 
 <style>
   .node-card {
+    display: grid;
+    gap: 10px;
     padding: 18px;
+    transition:
+      border-color var(--rcl-motion-fast) var(--rcl-ease-standard),
+      transform var(--rcl-motion-fast) var(--rcl-ease-standard);
+  }
+
+  .node-card:hover {
+    border-color: color-mix(in srgb, var(--rcl-primary) 45%, var(--line));
+    transform: translateY(-2px);
   }
 
   .node-card h2 {
     font-size: 1.15rem;
     line-height: 1.25;
-    margin: 6px 0 8px;
+    margin: 0;
   }
 
   .node-card h2 a {
@@ -36,10 +46,13 @@ const { entry, lang } = Astro.props;
   }
 
   .node-card p {
-    margin: 0 0 12px;
+    color: var(--muted);
+    margin: 0;
   }
 
   .read-more {
+    color: var(--rcl-primary-strong);
     font-weight: 700;
+    margin-top: 4px;
   }
 </style>

@@ -13,13 +13,128 @@ export function getStaticPaths() {
 const lang = Astro.params.lang as Locale;
 const entries = await getNodesByLocale(lang);
 const availableNodeIds = entries.map((entry) => entry.data.id);
+
+const copy = {
+  en: {
+    kicker: "Knowledge graph",
+    intro: "Use the graph as a learning map: prerequisites point forward, contrasts expose boundaries, and draft nodes show where the lab will grow next.",
+    filters: "Filters",
+    legend: "Legend",
+    available: "Available pages",
+    draft: "Draft nodes"
+  },
+  zh: {
+    kicker: "知识图谱",
+    intro: "把图谱当作学习地图：前置关系指向下一步，对比关系说明边界，草稿节点展示实验室后续会扩展到哪里。",
+    filters: "筛选",
+    legend: "图例",
+    available: "已有页面",
+    draft: "草稿节点"
+  }
+}[lang];
 ---
 
 <Layout lang={lang} title={t(lang, "graph")} description={t(lang, "siteDescription")}>
-  <section class="prose">
+  <section class="graph-hero rcl-graph-paper">
+    <p class="section-kicker">{copy.kicker}</p>
     <h1>{t(lang, "graph")}</h1>
-    <p class="summary">{t(lang, "siteDescription")}</p>
+    <p>{copy.intro}</p>
+  </section>
+
+  <section class="graph-tools" aria-label={copy.filters}>
+    <div class="tool-card surface">
+      <h2>{copy.filters}</h2>
+      <div class="filter-row" aria-label={copy.filters}>
+        <span>{copy.available}: {availableNodeIds.length}</span>
+        <span>{copy.draft}: {graphNodes.filter((node) => node.status === "draft").length}</span>
+      </div>
+    </div>
+    <div class="tool-card surface">
+      <h2>{copy.legend}</h2>
+      <div class="legend-row">
+        <span><i class="blue"></i> prerequisite</span>
+        <span><i class="green"></i> uses</span>
+        <span><i class="orange"></i> motivates</span>
+      </div>
+    </div>
   </section>
 
   <GraphExplorer client:load lang={lang} nodes={graphNodes} edges={graphEdges} availableNodeIds={availableNodeIds} />
 </Layout>
+
+<style>
+  .graph-hero {
+    background-color: color-mix(in srgb, var(--surface) 88%, transparent);
+    border: 1px solid var(--line);
+    border-radius: var(--rcl-radius-xl);
+    box-shadow: var(--rcl-shadow-md);
+    margin-bottom: 18px;
+    padding: clamp(24px, 5vw, 52px);
+  }
+
+  .graph-hero h1 {
+    font-size: clamp(2.4rem, 6vw, 5rem);
+    line-height: 0.98;
+    margin: 0 0 14px;
+  }
+
+  .graph-hero p:not(.section-kicker) {
+    color: var(--muted);
+    font-size: 1.1rem;
+    max-width: 760px;
+  }
+
+  .graph-tools {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    margin-bottom: 18px;
+  }
+
+  .tool-card {
+    padding: 18px;
+  }
+
+  .tool-card h2 {
+    font-size: 1rem;
+    margin: 0 0 10px;
+  }
+
+  .filter-row,
+  .legend-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .filter-row span,
+  .legend-row span {
+    background: var(--surface-muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 800;
+    padding: 6px 10px;
+  }
+
+  .legend-row i {
+    border-radius: 999px;
+    display: inline-block;
+    height: 9px;
+    margin-right: 5px;
+    width: 9px;
+  }
+
+  .legend-row .blue {
+    background: var(--rcl-primary);
+  }
+
+  .legend-row .green {
+    background: var(--rcl-accent);
+  }
+
+  .legend-row .orange {
+    background: var(--rcl-secondary);
+  }
+</style>

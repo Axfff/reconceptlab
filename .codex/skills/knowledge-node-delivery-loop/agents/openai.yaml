@@ -1,0 +1,4 @@
+interface:
+  display_name: "Knowledge Node Delivery Loop"
+  short_description: "Design then implement a knowledge node"
+  default_prompt: "Use $knowledge-node-delivery-loop to design and implement a knowledge node for <topic>."

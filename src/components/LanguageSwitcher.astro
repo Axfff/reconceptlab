@@ -44,9 +44,10 @@ const { lang, pathname, availableLocales = localeCodes } = Astro.props;
   }
 
   a[aria-current="true"] {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--bg);
+    background: var(--rcl-secondary-soft);
+    border-color: var(--rcl-secondary);
+    color: var(--rcl-secondary-strong);
+    font-weight: 850;
   }
 
   span {

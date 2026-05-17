@@ -1,0 +1,182 @@
+---
+id: bentley-ottmann
+locale: en
+title: Bentley-Ottmann Sweep Line
+summary: Report all segment intersections by sweeping left to right and checking only local neighbors.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - geometry
+  - algorithms
+  - sweep-line
+prerequisites:
+  - closest-pair-divide-and-conquer
+  - graham-scan
+next: []
+createdAt: 2026-05-16
+updatedAt: 2026-05-16
+---
+
+import BentleyOttmannDemo from "../../../components/interactive/BentleyOttmannDemo";
+import BentleyOttmannScenarioFigure from "../../../components/interactive/BentleyOttmannScenarioFigure";
+
+## Hook problem
+
+Suppose several map layers are drawn as line segments: roads, rivers, planned paths, and boundaries. You do not only want to know whether a crossing exists. You need the full report of every pair that crosses.
+
+<BentleyOttmannScenarioFigure lang="en" scenarioId="hook-map" />
+
+That distinction matters. A decision problem can stop after the first crossing. A reporting problem must keep going until the output list is complete.
+
+## First naive idea
+
+The most direct algorithm checks every pair of segments. If there are `n` segments, that is `n(n - 1) / 2` intersection tests.
+
+<BentleyOttmannScenarioFigure lang="en" scenarioId="naive-pair-matrix" />
+
+This is correct, and in the worst case there can really be `Theta(n^2)` intersections. But many inputs have far fewer crossings than possible pairs.
+
+## Where it breaks
+
+The brute-force algorithm spends the same pair-checking work even when the output is small. Bentley-Ottmann aims for an output-sensitive running time: the work depends on `n`, the number of input segments, and `k`, the number of intersections reported.
+
+<BentleyOttmannScenarioFigure lang="en" scenarioId="output-sensitive-count" />
+
+The question becomes: can we discover the pairs that matter without comparing every active segment with every other active segment?
+
+## The core invention
+
+Move an imaginary vertical sweep line from left to right. The line seems continuous, but the algorithm stops only at events: a segment starts, a segment ends, or two active segments cross.
+
+<BentleyOttmannScenarioFigure lang="en" scenarioId="sweep-snapshot" />
+
+At any sweep position, a segment is active if the sweep line crosses it. The sweep-line status stores active segments from top to bottom. Between two consecutive events, this vertical order does not change.
+
+The other working structure is the future event queue: endpoint events known from the start, plus intersection events discovered during the sweep.
+
+## Adjacent-segment rule
+
+When the status changes, only a local neighborhood changes. If a segment enters between two former neighbors, the old neighbor pair is no longer adjacent, and the entering segment has at most two new neighbors to test.
+
+<BentleyOttmannScenarioFigure lang="en" scenarioId="adjacent-rule-left-c" />
+
+The rule is: whenever two segments become adjacent in the status, test whether they intersect to the right of the current sweep line. If they do, schedule that intersection as a future event.
+
+## Interactive visual demo
+
+<BentleyOttmannDemo client:load lang="en" />
+
+The demo uses eager stale-event cleanup. A scheduled intersection stays in the queue only while the two segments are currently adjacent. When another event separates them, the scheduled event is removed as stale.
+
+## Event handling
+
+At a left endpoint, insert the segment into the status, remove any scheduled event for the former above/below pair, and test the two new neighbor pairs.
+
+<BentleyOttmannScenarioFigure lang="en" scenarioId="left-event-card" />
+
+At a right endpoint, delete the segment. If the deleted segment had both an above and a below neighbor, those two become adjacent and should be tested. In the fixed trace, `B` is bottommost when it exits, so no new pair appears.
+
+<BentleyOttmannScenarioFigure lang="en" scenarioId="right-event-card" />
+
+At an intersection event, report the pair, swap the two segments in the status, remove scheduled events that are no longer adjacent, and test the new outer neighbor pairs.
+
+<BentleyOttmannScenarioFigure lang="en" scenarioId="intersection-event-card" />
+
+The status before an event is read just to the left of the event x-coordinate. The status after an event is read just to the right. That convention avoids ambiguity when two segments have equal y-value exactly at their crossing.
+
+## Formal version
+
+Given a set `S` of line segments, initialize a priority queue with every left and right endpoint event. The sweep-line status starts empty.
+
+The page uses these helper operations:
+
+- `extractMin` removes the leftmost future event.
+- `status.insert`, `status.delete`, and `status.swapAdjacent` update the active order.
+- `above` and `below` find immediate neighbors in the top-to-bottom status.
+- `testAndSchedule(a, b)` computes the intersection of two candidate neighbors and schedules it only if it lies strictly to the right of the sweep line and inside both segment ranges.
+
+## Implementation sketch
+
+```ts
+while (!queue.isEmpty()) {
+  const event = queue.extractMin();
+  sweepX = event.x;
+
+  if (event.type === "left") {
+    const s = event.segment;
+    const aboveBefore = status.aboveInsertionPoint(s);
+    const belowBefore = status.belowInsertionPoint(s);
+    status.insert(s);
+    queue.removeIfScheduled(aboveBefore, belowBefore);
+    testAndSchedule(aboveBefore, s);
+    testAndSchedule(s, belowBefore);
+  }
+
+  if (event.type === "right") {
+    const s = event.segment;
+    const above = status.above(s);
+    const below = status.below(s);
+    status.delete(s);
+    testAndSchedule(above, below);
+  }
+
+  if (event.type === "intersection") {
+    const [a, b] = event.pair;
+    if (!status.areAdjacent(a, b)) continue;
+
+    const upperBefore = status.upperOfPair(a, b);
+    const lowerBefore = status.lowerOfPair(a, b);
+    const aboveOuter = status.above(upperBefore);
+    const belowOuter = status.below(lowerBefore);
+
+    report(a, b);
+    queue.removeIfScheduled(aboveOuter, upperBefore);
+    queue.removeIfScheduled(lowerBefore, belowOuter);
+    status.swapAdjacent(upperBefore, lowerBefore);
+
+    testAndSchedule(aboveOuter, lowerBefore);
+    testAndSchedule(upperBefore, belowOuter);
+  }
+}
+```
+
+The explicit adjacency check in the intersection branch is defensive. Under eager cleanup it should always pass, but it prevents a stale event from being reported if the queue implementation is wrong.
+
+## Correctness intuition
+
+Why is it safe to test only adjacent pairs?
+
+<BentleyOttmannScenarioFigure lang="en" scenarioId="correctness-frames" />
+
+Let `p` be a future intersection of two segments, and let `q` be the event immediately before `p`. No event occurs between `q` and `p`, so no third segment can start, end, or cross in that open interval. Just before reaching `p`, the two crossing segments are adjacent. Therefore, they were already adjacent immediately after processing `q`, when the algorithm tested that adjacent pair and scheduled `p`.
+
+## Complexity
+
+There are `2n` endpoint events and `k` intersection events. Each processed event changes only a constant number of neighbor pairs, so it performs a constant number of status and queue operations.
+
+<BentleyOttmannScenarioFigure lang="en" scenarioId="complexity-ledger" />
+
+With a balanced ordered set for status and a removable priority queue for events, each operation costs `O(log n)`. The total running time is `O((n + k) log n)`.
+
+The eager cleanup version needs event ids or handles so scheduled events can be removed in logarithmic time. A plain heap can use lazy stale-event skipping instead, but then the queue visualization would be different.
+
+## Common confusions
+
+Active does not mean currently intersecting another segment. It means the segment crosses the current sweep line.
+
+Scheduled does not mean reported. An intersection is reported only when its event is extracted from the queue.
+
+The general-position assumptions hide tie handling: this page assumes no vertical segments, no equal event x-coordinates, no endpoint on another segment, and no three segments crossing at one point.
+
+## Connections in the graph
+
+Closest pair divide and conquer and Bentley-Ottmann both avoid naive pair checking by exploiting geometry. Graham Scan and Bentley-Ottmann both maintain geometric order, but Graham Scan uses a static angular order while Bentley-Ottmann maintains a dynamic sweep order.
+
+## Exercises
+
+1. At `left-C`, why is the old `A-B` event removed?
+2. After reporting `A-C`, why does `B-C` become stale?
+3. In the demo, which event causes `B-C` to be scheduled again?
+4. What extra rule would be needed if two events had exactly the same x-coordinate?

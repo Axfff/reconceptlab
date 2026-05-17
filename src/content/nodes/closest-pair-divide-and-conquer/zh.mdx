@@ -1,0 +1,147 @@
+---
+id: closest-pair-divide-and-conquer
+locale: zh
+title: 分治法求最近点对
+summary: 结合递归和分割线附近的局部网格搜索，比枚举所有点对更快地找到最近的两个点。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - geometry
+  - algorithms
+  - divide-and-conquer
+prerequisites: []
+next:
+  - graham-scan
+createdAt: 2026-05-15
+updatedAt: 2026-05-15
+---
+
+import ClosestPairDemo from "../../../components/interactive/ClosestPairDemo";
+import ClosestPairScenarioFigure from "../../../components/interactive/ClosestPairScenarioFigure";
+
+## 问题从哪里来
+
+假设地图上有成千上万个点，你想找出距离最近的两个点。问题本身很简单：在所有点对中，找到欧氏距离（Euclidean distance）最小的一对。
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="hook-map" />
+
+## 第一个朴素想法
+
+检查所有 `n(n - 1) / 2` 个点对，并记录目前见过的最短距离。
+
+这个方法简单且正确，但需要 `O(n^2)` 次距离比较。还没有进入形式化算法，数量本身就已经是痛点。
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="naive-pair-count" />
+
+## 它为什么会痛
+
+一个较小的当前最优距离，可以在比较之后排除某个远点对；但普通列表仍然没有便宜的方法去问：“哪些点近到值得检查？”
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="radius-neighborhood" />
+
+真正的合并问题是：左半边和右半边各自求完最近点对以后，还剩多少跨边界点对需要看？
+
+## 核心发明
+
+先按 `x` 坐标排序，用一条竖线把点集分成左右两半，递归求出两边内部的最近距离，再令 `r` 为两者的较小值。同侧点对已经由递归解决。
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="split-after-recursion" />
+
+小规模基本情况仍然用暴力法：当一个递归子问题最多只有三个点时，直接比较这些少量点对。递归的意义，是把难点变成一次合并问题。
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="recursion-scaffold" />
+
+如果存在更好的答案，它一定是距离小于 `r` 的跨边界点对。这意味着两个端点都必须位于分割线两侧距离 `r` 以内。
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="threshold-band" />
+
+带状区域只是过滤器。在带内，我们仍然需要一种方法找到附近跨边界点对，而不是枚举所有带内组合。网格（grid）使用边长 `r / sqrt(2)` 的单元格（cell），并围绕每个左侧当前格子检查固定的局部窗口。
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="packing-occupancy" />
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="grid-cell-size" />
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="cell-distance-ruler" />
+
+## 互动可视化
+
+<ClosestPairDemo client:load lang="zh" />
+
+## 形式化版本
+
+给定平面点集 `P`，按 `x` 坐标把它分成 `PL` 和 `PR`。递归计算两边的最近距离 `rLeft` 和 `rRight`，并令 `r = min(rLeft, rRight)`。
+
+唯一还没解决的是跨边界候选点对 `(p, q)`：`p` 在一边，`q` 在另一边，并且 `dist(p, q) < r`。
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="pair-classification" />
+
+本页使用 `dist(P, Q) = sqrt((Px - Qx)^2 + (Py - Qy)^2)`。网格会保存带内点以及它们的左右标签，但只发出左-右跨边界候选点对。实现中使用稳定的左侧当前点顺序、规范化点对顺序，并在计数前去重。
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="active-neighbor-cells" />
+
+## 实现草图
+
+```ts
+function closestPair(points: Point[]): Distance {
+  const unique = rejectDuplicateCoordinates(points);
+  const byX = sortByX(unique);
+  return solve(byX);
+}
+
+function solve(pointsByX: Point[]): Distance {
+  if (pointsByX.length <= 3) return bruteForce(pointsByX);
+
+  const { leftByX, rightByX, splitX } = splitSortedByX(pointsByX);
+  const rLeft = solve(leftByX);
+  const rRight = solve(rightByX);
+  const r = Math.min(rLeft, rRight);
+
+  return Math.min(r, closestCrossPair(pointsByX, splitX, r));
+}
+```
+
+`closestCrossPair` 会为阈值带构建哈希网格。它使用半开区间格子，检查保守的 `dx,dy in [-2,2]` 格子窗口，并且在接受任何候选之前仍然计算真实欧氏距离。
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="code-trace-map" />
+
+## 正确性直觉
+
+每个点对要么同侧，要么跨边界。同侧点对已经由递归处理。阈值带外的跨边界点对不可能优于 `r`。局部网格窗口外的跨边界点对也不可能优于 `r`。剩下被检查的点对，仍然需要真实距离比较。
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="candidate-filter" />
+
+## 复杂度
+
+先按 `x` 坐标排序一次，并在递归中传递有序列表，因此每一层只有期望线性的合并工作。哈希网格让非空格子查询达到期望 `O(1)`。
+
+```text
+T(n) <= 2T(n / 2) + O(n)
+```
+
+因此总期望时间复杂度是 `O(n log n)`。
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="complexity-tree" />
+
+## 常见混淆
+
+网格本身不是完整算法。它只是在递归已经给出距离阈值 `r` 之后，让合并步骤变便宜。
+
+正好落在正向网格边界上的点，会进入右侧或上方格子。距离正好等于 `r` 的并列点对不会替换当前最佳。重复坐标会在构建网格之前直接返回距离 `0`。
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="boundary-cell-rule" />
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="tie-distance" />
+
+<ClosestPairScenarioFigure lang="zh" scenarioId="duplicate-points" />
+
+## 图谱连接
+
+最近点对分治和 Graham 扫描都是几何算法。最近点对依赖递归和局部跨边界合并；Graham 扫描依赖极角排序和栈不变量。
+
+## 预测练习
+
+1. 在演示中，为什么同侧点对不需要在合并阶段重新检查？
+2. 经过阈值带过滤后、进入网格窗口规则前，还剩哪些点对？
+3. 为什么网格仍然要计算欧氏距离，而不是直接接受附近格子里的每个点对？

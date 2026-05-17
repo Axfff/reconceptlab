@@ -2,7 +2,7 @@
 id: graph-basics
 locale: zh
 title: 图的基础
-summary: 用节点、边和邻接关系描述成对关系，让算法可以沿着关系移动。
+summary: 用节点、边和邻接关系描述对象之间的关系，让搜索算法能一步一步沿着关系移动。
 status: draft
 translationStatus: needs-review
 difficulty: beginner
@@ -17,48 +17,105 @@ createdAt: 2026-05-15
 updatedAt: 2026-05-15
 ---
 
+import GraphBasicsFigure from "../../../components/interactive/GraphBasicsFigure";
+import GraphBasicsExplorer from "../../../components/interactive/GraphBasicsExplorer";
+import GraphRepresentationCompare from "../../../components/interactive/GraphRepresentationCompare";
+
 ## 问题从哪里来
 
-想象一栋楼里有很多房间，房间之间由门连接。你现在不关心房间的形状，只关心从哪个房间可以走到哪个房间。
+想象一栋楼里有很多房间，房间之间由门连接。现在不需要记录每个房间的形状，只需要回答一个小问题：从这个房间出发，一步能到哪些房间？
+
+<GraphBasicsFigure lang="zh" scenarioId="room-map" />
 
 ## 第一个朴素想法
 
-可以把每条路线写成一句话："从大厅到走廊，再到实验室。" 一两条路线还可以，但楼变大以后就很难维护。
+一个直接做法是写路线卡片，比如 "Lobby -> Hall -> Lab" 或 "Cafe -> Hall -> Lab"。路线少的时候，这很清楚。
+
+<GraphBasicsFigure lang="zh" scenarioId="route-sentences" />
 
 ## 它为什么会痛
 
-如果新增一扇门，很多路线描述都可能过期。问题在于，路线把原始结构和具体走法混在了一起。
+现在新增一扇从 Cafe 到 Lab 的门。建筑事实只变了一次，但多张路线建议都要复查：有的仍然有效，有的已经过期，还有新的直接路线缺失。
+
+<GraphBasicsFigure lang="zh" scenarioId="door-change-pain" />
+
+路线卡片是人工维护的建议，不是算法。真正的问题是，完整路线把稳定的结构和具体走法混在了一起。
 
 ## 核心发明
 
-图（graph）把结构和搜索分开。节点（node）表示对象，边（edge）表示关系，邻接关系（adjacency）记录一个节点直接连到哪些邻居。
+图（graph）存储局部关系事实。节点（node）表示一个对象，边（edge）表示一个直接关系，邻接关系（adjacency）记录一个节点的直接邻居。
+
+<GraphBasicsFigure lang="zh" scenarioId="modeling-choice" />
 
 ## 互动可视化
 
-最先要看的问题很小：从一个节点出发，哪些邻居可以直接到达？后面的算法都会反复使用这个局部视角。
+<GraphBasicsExplorer client:load lang="zh" />
 
 ## 形式化版本
 
-图通常写作 `G = (V, E)`。`V` 是顶点集合，`E` 是边集合。边可以有方向，也可以没有方向；可以有权重，也可以没有权重。
+图常写作 `G = (V, E)`。`V` 是顶点或节点集合，`E` 是边集合。在这一页里，`Lobby` 是 `V` 中的节点，`Lobby-Hall` 是 `E` 中的一条边。
+
+<GraphBasicsFigure lang="zh" scenarioId="formal-sets" />
+
+边可以是无向的，也可以是有向的。像 `["lobby", "hall"]` 这样的无向边会产生两个邻居事实：Lobby 的行列出 Hall，Hall 的行也列出 Lobby。
 
 ## 实现草图
 
+存完整路线建议很脆弱：
+
 ```ts
-const graph = {
+const routeAdvice = [["cafe", "hall", "lab"]];
+```
+
+邻接表（adjacency list）改为存局部事实：
+
+```ts
+const adjacency = {
   lobby: ["hall", "stairs"],
-  hall: ["lobby", "lab"],
+  hall: ["lobby", "lab", "cafe"],
   lab: ["hall"],
-  stairs: ["lobby"]
+  stairs: ["lobby", "cafe"],
+  cafe: ["hall", "stairs"]
 };
 ```
 
-这种邻接表（adjacency list）在每个节点只连接少量邻居时很紧凑。
+<GraphBasicsFigure lang="zh" scenarioId="route-advice-vs-adjacency" />
+
+## 表示不变量
+
+当每一扇直接门都按约定出现在表示里时，这个表示就是正确的。对于无向图，每扇门都要出现在两个房间的邻接行中。
+
+<GraphBasicsFigure lang="zh" scenarioId="adjacency-list" />
+
+## 复杂度和取舍
+
+当每个节点只有少量邻居时，邻接表很紧凑。邻接矩阵（adjacency matrix）像一张查询表：选一行、选一列，就能读出是否有直接边。
+
+<GraphRepresentationCompare client:load lang="zh" />
+
+<GraphBasicsFigure lang="zh" scenarioId="adjacency-matrix" />
+
+## 有向和带权变体
+
+有向边只改变一个方向的邻接行。带权边会增加代价标签，但不会改变两个节点是否相邻。
+
+<GraphBasicsFigure lang="zh" scenarioId="directed-edge" />
+
+<GraphBasicsFigure lang="zh" scenarioId="weighted-edge" />
+
+## 常见混淆
+
+边是一条直接连接。路径（path）是多条边串起来。邻居（neighbor）只隔一条边。可达节点可能需要走多条边。
+
+<GraphBasicsFigure lang="zh" scenarioId="common-confusions" />
 
 ## 图谱连接
 
-BFS 会反复问同一个问题：当前节点有哪些还没访问过的邻居应该进入队列？
+BFS 会反复使用图的基础问题：从当前节点出发，哪些相邻节点可以下一步访问？Dijkstra 之后会保留节点、边和邻接关系，再加入边的代价来选择最便宜的下一批前沿。
 
 ## 预测练习
 
-1. 如果有一条从 `A` 指向 `B` 的有向边，一定能从 `B` 走回 `A` 吗？
-2. 新增一条边时，路线句子和邻接表哪个更容易更新？
+1. Lobby 的一步邻居有哪些？
+2. 如果 Cafe -> Lab 是一条单向边，哪一行邻接表会改变？
+3. 在基础例子中，矩阵单元格 `(Lab, Cafe)` 是多少？
+4. `Lobby -> Hall -> Lab` 是一条边，还是一条路径？

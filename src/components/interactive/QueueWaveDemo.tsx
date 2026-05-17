@@ -1,105 +1,69 @@
 import { useMemo, useState } from "react";
 import type { Locale } from "../../i18n/locales";
 import { ui } from "../../i18n/ui";
+import { positions, trace, undirectedEdges, type MainBfsNodeId } from "./bfsTrace";
 
-type StepState = {
-  visited: string[];
-  queue: string[];
-  current?: string;
-  explanation: Record<Locale, string>;
-};
-
-const graph = {
-  A: ["B", "C"],
-  B: ["D", "E"],
-  C: ["F"],
-  D: [],
-  E: [],
-  F: []
-};
-
-const positions: Record<string, { x: number; y: number }> = {
-  A: { x: 160, y: 40 },
-  B: { x: 90, y: 115 },
-  C: { x: 230, y: 115 },
-  D: { x: 50, y: 195 },
-  E: { x: 130, y: 195 },
-  F: { x: 250, y: 195 }
-};
-
-const trace: StepState[] = [
-  {
-    visited: ["A"],
-    queue: ["A"],
-    current: "A",
-    explanation: {
-      en: "Start by putting A in the queue. The queue records the wave front.",
-      zh: "先把 A 放入队列（queue）。队列记录正在扩张的波前。"
-    }
+const labels = {
+  en: {
+    title: "Breadth-first search trace",
+    previous: "Previous BFS step",
+    next: "Next BFS step",
+    reset: "Reset BFS trace",
+    discovered: "Discovered",
+    expanded: "Expanded",
+    distance: "Distance",
+    parent: "Parent",
+    current: "Current",
+    edge: "Active edge",
+    empty: "empty"
   },
-  {
-    visited: ["A", "B", "C"],
-    queue: ["B", "C"],
-    current: "A",
-    explanation: {
-      en: "Remove A, then discover its neighbors B and C. They wait in first-in, first-out order.",
-      zh: "取出 A，再发现邻居 B 和 C。它们按照先进先出的顺序等待。"
-    }
-  },
-  {
-    visited: ["A", "B", "C", "D", "E"],
-    queue: ["C", "D", "E"],
-    current: "B",
-    explanation: {
-      en: "Now B expands. D and E are one edge farther away than B.",
-      zh: "现在扩张 B。D 和 E 比 B 再多一条边。"
-    }
-  },
-  {
-    visited: ["A", "B", "C", "D", "E", "F"],
-    queue: ["D", "E", "F"],
-    current: "C",
-    explanation: {
-      en: "C expands before D and E because it was queued earlier. This preserves distance layers.",
-      zh: "C 比 D 和 E 更早入队，所以先扩张。这保持了按距离分层的顺序。"
-    }
-  },
-  {
-    visited: ["A", "B", "C", "D", "E", "F"],
-    queue: [],
-    explanation: {
-      en: "The queue is empty. Every reachable node has been visited by increasing edge distance.",
-      zh: "队列为空。所有可达节点都已经按边数距离从近到远访问。"
-    }
+  zh: {
+    title: "广度优先搜索追踪",
+    previous: "上一步 BFS",
+    next: "下一步 BFS",
+    reset: "重置 BFS 追踪",
+    discovered: "已发现",
+    expanded: "已展开",
+    distance: "距离",
+    parent: "父节点",
+    current: "当前",
+    edge: "当前边",
+    empty: "空"
   }
-];
+};
+
+function statusFor(id: MainBfsNodeId, step: (typeof trace)[number]) {
+  if (step.current === id) return "current";
+  if (step.expanded.includes(id)) return "expanded";
+  if (step.queue.includes(id)) return "queued";
+  if (step.discovered.includes(id)) return "visited";
+  return "waiting";
+}
 
 export default function QueueWaveDemo({ lang }: { lang: Locale }) {
-  const [step, setStep] = useState(0);
-  const state = trace[step];
-  const visited = useMemo(() => new Set(state.visited), [state]);
-  const queued = useMemo(() => new Set(state.queue), [state]);
+  const [stepIndex, setStepIndex] = useState(0);
+  const state = trace[stepIndex];
+  const activeEdge = state.current && state.activeNeighbor ? `${state.current}-${state.activeNeighbor}` : "";
+  const activeEdgeReverse = state.current && state.activeNeighbor ? `${state.activeNeighbor}-${state.current}` : "";
+  const discovered = useMemo(() => new Set(state.discovered), [state]);
+  const expanded = useMemo(() => new Set(state.expanded), [state]);
 
   return (
-    <section className="queue-wave-demo" aria-label="Breadth-first search queue wave demo">
+    <section className="queue-wave-demo" aria-label={labels[lang].title}>
       <div className="demo-grid">
-        <svg viewBox="0 0 320 240" role="img" aria-label={state.explanation[lang]}>
-          {Object.entries(graph).flatMap(([from, tos]) =>
-            tos.map((to) => (
-              <line
-                key={`${from}-${to}`}
-                x1={positions[from].x}
-                y1={positions[from].y}
-                x2={positions[to].x}
-                y2={positions[to].y}
-              />
-            ))
-          )}
-          {Object.keys(graph).map((id) => {
-            const status = state.current === id ? "current" : queued.has(id) ? "queued" : visited.has(id) ? "visited" : "waiting";
+        <svg viewBox="0 0 340 285" role="img" aria-label={state.explanation[lang]}>
+          {undirectedEdges.map(([from, to]) => {
+            const start = positions[from];
+            const end = positions[to];
+            const active = `${from}-${to}` === activeEdge || `${from}-${to}` === activeEdgeReverse;
+            return <line key={`${from}-${to}`} className={active ? "active" : ""} x1={start.x} y1={start.y} x2={end.x} y2={end.y} />;
+          })}
+          {(Object.keys(positions) as MainBfsNodeId[]).map((id) => {
+            const point = positions[id];
+            const status = statusFor(id, state);
             return (
-              <g key={id} transform={`translate(${positions[id].x}, ${positions[id].y})`}>
-                <circle className={status} r="24" />
+              <g key={id} transform={`translate(${point.x}, ${point.y})`}>
+                <circle className={status} r="23" />
                 <text textAnchor="middle" y="5">{id}</text>
                 <title>{`${id}: ${status}`}</title>
               </g>
@@ -108,18 +72,41 @@ export default function QueueWaveDemo({ lang }: { lang: Locale }) {
         </svg>
 
         <div className="state-panel">
-          <p className="state-label">{ui[lang].currentState}</p>
-          <p>{state.explanation[lang]}</p>
-          <div className="queue" aria-live="polite">
+          <p className="state-label">{labels[lang].title}</p>
+          <p aria-live="polite">{state.explanation[lang]}</p>
+          <div className="queue">
             <strong>{ui[lang].queue}:</strong>
-            {state.queue.length > 0 ? state.queue.map((id) => <span key={id}>{id}</span>) : <span>empty</span>}
+            {state.queue.length > 0 ? state.queue.map((id) => <span key={id}>{id}</span>) : <span>{labels[lang].empty}</span>}
           </div>
+          <div className="bfs-state-table">
+            <div><strong>{labels[lang].current}</strong><span>{state.current ?? "-"}</span></div>
+            <div><strong>{labels[lang].edge}</strong><span>{activeEdge || "-"}</span></div>
+            <div><strong>{labels[lang].discovered}</strong><span>{[...discovered].join(", ") || "-"}</span></div>
+            <div><strong>{labels[lang].expanded}</strong><span>{[...expanded].join(", ") || "-"}</span></div>
+          </div>
+          <table className="bfs-mini-table">
+            <thead>
+              <tr><th>{lang === "en" ? "Node" : "节点"}</th><th>{labels[lang].distance}</th><th>{labels[lang].parent}</th></tr>
+            </thead>
+            <tbody>
+              {(Object.keys(positions) as MainBfsNodeId[]).map((id) => (
+                <tr key={id}>
+                  <th scope="row">{id}</th>
+                  <td>{state.distance[id] ?? "-"}</td>
+                  <td>{state.parent[id] ?? "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
           <div className="controls">
-            <button type="button" onClick={() => setStep((value) => Math.min(value + 1, trace.length - 1))}>
-              {ui[lang].step}
+            <button type="button" onClick={() => setStepIndex((value) => Math.max(value - 1, 0))} disabled={stepIndex === 0}>
+              {labels[lang].previous}
             </button>
-            <button type="button" onClick={() => setStep(0)}>
-              {ui[lang].reset}
+            <button type="button" onClick={() => setStepIndex((value) => Math.min(value + 1, trace.length - 1))} disabled={stepIndex === trace.length - 1}>
+              {labels[lang].next}
+            </button>
+            <button type="button" onClick={() => setStepIndex(0)}>
+              {labels[lang].reset}
             </button>
           </div>
         </div>

@@ -4,6 +4,14 @@ A multilingual, visual, interactive computer science knowledge graph built with 
 
 The site teaches concepts through progressive reinvention: start with a concrete problem, try a naive idea, show where it breaks, then introduce the algorithm or abstraction.
 
+Visual and interactive support should be woven through the learning path. Prefer nearby figures, trace-linked diagrams, compact state tables, and micro-widgets for useful sections and steps instead of relying on one isolated demo.
+
+MDX node pages support KaTeX-rendered formulas. Use `$...$` for inline math, `$$...$$` for display math, and `\$` for literal dollar signs.
+
+## Visual Style
+
+The visual style is **Explorable Lab Notebook**: precise documentation, connected graph thinking, interactive lab panels, and a warm learning-journal tone. The imported prompt package is organized in `docs/visual-style/`, including design tokens, component specs, page specs, i18n notes, QA checklist, and staged Codex prompts.
+
 ## Run Locally
 
 ```bash
@@ -32,9 +40,14 @@ tests                                       Vitest coverage for validation
 2. Add `src/content/nodes/<concept-id>/zh.mdx` or document that the translation is missing.
 3. Add the concept to `src/data/graph.ts`.
 4. Add localized edge reasons for every new connection.
-5. Run `npm run validate`, then `npm run check`, `npm run test`, and `npm run build`.
+5. Add formulas where they clarify invariants, definitions, recurrences, or complexity, and pair important notation with plain-language explanation.
+6. Run `npm run validate`, then `npm run check`, `npm run test`, and `npm run build`.
 
 Use stable language-independent IDs in URLs, such as `/en/nodes/bfs` and `/zh/nodes/bfs`.
+
+## Formula Rendering
+
+Formula support is configured in `astro.config.mjs` with `remark-math` and `rehype-katex`; KaTeX styles are loaded globally from `src/components/Layout.astro`. Long display formulas can scroll horizontally on small screens.
 
 ## i18n
 
@@ -47,5 +60,8 @@ Supported locales live in `src/i18n/locales.ts`. Shared UI copy lives in `src/i1
 ## Next Steps
 
 - Expand Dijkstra from placeholder to a full progressive page.
+- Add a reusable interactive demo for closest-pair divide and conquer.
 - Add a reusable edge-relaxation interactive primitive.
 - Add richer graph filtering once the concept library grows.
+
+See [docs/knowledge-node-plan.md](docs/knowledge-node-plan.md) for the current content plan.

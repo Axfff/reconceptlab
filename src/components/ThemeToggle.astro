@@ -1,0 +1,57 @@
+---
+import type { Locale } from "../i18n/locales";
+import { t } from "../i18n/ui";
+
+type Props = {
+  lang: Locale;
+};
+
+const { lang } = Astro.props;
+---
+
+<button class="theme-toggle" type="button" aria-label={t(lang, "theme")} data-theme-toggle>
+  <span aria-hidden="true">Aa</span>
+</button>
+
+<script is:inline>
+  (() => {
+    const button = document.querySelector("[data-theme-toggle]");
+    if (!button) return;
+
+    const setTheme = (theme) => {
+      document.documentElement.dataset.theme = theme;
+      localStorage.setItem("rcl-theme", theme);
+      button.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+    };
+
+    button.setAttribute("aria-pressed", document.documentElement.dataset.theme === "dark" ? "true" : "false");
+    button.addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+      setTheme(next);
+    });
+  })();
+</script>
+
+<style>
+  .theme-toggle {
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--text);
+    cursor: pointer;
+    display: inline-flex;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 850;
+    height: 34px;
+    justify-content: center;
+    min-width: 42px;
+    padding: 0 10px;
+  }
+
+  .theme-toggle[aria-pressed="true"] {
+    background: var(--rcl-primary-soft);
+    border-color: var(--rcl-primary);
+  }
+</style>

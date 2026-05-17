@@ -1,0 +1,133 @@
+---
+id: graham-scan
+locale: zh
+title: Graham 扫描
+summary: 围绕锚点按极角排序，并用保持左转的栈逐步构造凸包。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - geometry
+  - algorithms
+  - convex-hull
+prerequisites: []
+next: []
+createdAt: 2026-05-15
+updatedAt: 2026-05-15
+---
+
+import GrahamScanDemo from "../../../components/interactive/GrahamScanDemo";
+import GrahamScenarioFigure from "../../../components/interactive/GrahamScenarioFigure";
+
+## 问题从哪里来
+
+假设平面上有一堆散点，你想找到包住它们的最紧外边界。可以想象用一根橡皮筋套住所有点，然后松手让它绷紧。橡皮筋碰到的多边形就是凸包（convex hull）。
+
+这一页只返回凸包的角点，并按逆时针顺序输出。如果多个点落在同一条平直边上，中间点不会作为角点输出。
+
+<GrahamScenarioFigure lang="zh" scenarioId="hook-hull" />
+
+## 第一个朴素想法
+
+尝试每一对点形成的有向边，并检查其他所有点是否都在这条边的同一侧。如果是，这条边可能属于外边界。
+
+这个想法接近支撑线（supporting line）的图像，但代价很高：大约有 `n^2` 条候选边，每条候选边还要扫描最多 `n` 个其他点。它也只给出零散边界片段，没有告诉我们如何顺着凸包走一圈。
+
+## 它为什么会痛
+
+缺少的是顺序。即使可以测试某条边是否在外侧，我们仍然不知道下一点应该是谁，也不知道后来发现某个点向内凹时该如何修复。
+
+## 核心发明
+
+先选一个锚点（anchor）：`y` 坐标最小的点；如果并列，选 `x` 更小的点。这个约定叫 lowest-leftmost，方便从 `x` 正方向开始逆时针扫描。
+
+从锚点出发，把其他所有点按极角（polar angle）排序。排序从锚点向右的射线开始，然后逆时针旋转。
+
+<GrahamScenarioFigure lang="zh" scenarioId="anchor-sort" />
+
+接着按排序结果扫描点，并维护一个栈（stack）。栈保存当前候选凸包角点。如果最新三个点形成右转，中间点让边界向内凹，就把它弹出。在只输出角点的约定下，共线的中间点也会被弹出。
+
+## 互动可视化
+
+<GrahamScanDemo client:load lang="zh" />
+
+## 形式化版本
+
+对三个点 `p`、`q`、`r`，定义：
+
+```ts
+orient(p, q, r) =
+  (q.x - p.x) * (r.y - p.y) -
+  (q.y - p.y) * (r.x - p.x);
+```
+
+直观上，可以想象从 `p` 走到 `q`，再看 `r` 在左边、右边，还是正前方。`orient` 为正表示左转，为负表示右转，为零表示三点共线。
+
+## 实现草图
+
+```ts
+function grahamScan(points: Point[]) {
+  const unique = uniquePoints(points);
+  if (unique.length <= 2) return unique;
+
+  const anchor = lowestLeftmost(unique);
+  const sorted = unique
+    .filter((p) => p.id !== anchor.id)
+    .sort((a, b) => {
+      const turn = orient(anchor, a, b);
+      if (turn !== 0) return turn > 0 ? -1 : 1;
+      return distanceSquared(anchor, a) - distanceSquared(anchor, b);
+    });
+
+  const hull = [anchor];
+
+  for (const point of sorted) {
+    while (
+      hull.length >= 2 &&
+      orient(hull[hull.length - 2], hull[hull.length - 1], point) <= 0
+    ) {
+      hull.pop();
+    }
+    hull.push(point);
+  }
+
+  return hull;
+}
+```
+
+同一极角的点按距离从近到远排序。当更远的点到来时，较近的点会成为共线中间点，然后被弹出。
+
+<GrahamScenarioFigure lang="zh" scenarioId="same-angle" />
+
+## 正确性直觉
+
+按极角排序后，扫描不会绕着锚点往回走。右转说明当前边界前缀向内凹，所以栈顶的中间点不可能是凸包角点。在本页的输出约定下，共线中间点也不是角点。
+
+<GrahamScenarioFigure lang="zh" scenarioId="right-turn-pop-f" />
+
+栈始终保存当前最好的逆时针边界前缀。每次弹出，都是因为下一个极角顺序中的点证明了某个候选点不是角点。
+
+## 复杂度
+
+寻找锚点和扫描栈都是线性的。按极角排序是主要开销，所以 Graham 扫描的时间复杂度是 `O(n log n)`。
+
+每个点最多入栈一次、出栈一次，因此栈操作总共是 `O(n)`。
+
+## 常见混淆
+
+选择锚点之前，应先去掉重复坐标。
+
+如果不同的点少于三个，答案就是这些点本身。
+
+这个版本只返回角点。如果想保留平直边上的每个点，可以用另一个变体修改共线规则。
+
+## 图谱连接
+
+Graham 扫描和最近点对分治是相邻的几何算法，但它们不是前置关系。最近点对使用递归和局部跨边界检查；Graham 扫描使用极角排序和栈不变量。
+
+## 预测练习
+
+1. 为什么按极角排序后，扫描会围绕锚点朝同一个方向前进？
+2. 在演示中，为什么 `C` 到来时会移除 `B`？
+3. 如果想保留平直凸包边上的每个点，规则需要怎样改变？

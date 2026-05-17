@@ -2,7 +2,7 @@
 id: bfs
 locale: en
 title: Breadth-First Search
-summary: Find shortest paths in an unweighted graph by expanding from the start like a wave.
+summary: Find shortest paths in an unweighted graph by expanding from the start in distance layers.
 status: draft
 translationStatus: source
 difficulty: beginner
@@ -18,23 +18,32 @@ createdAt: 2026-05-15
 updatedAt: 2026-05-15
 ---
 
+import BfsScenarioFigure from "../../../components/interactive/BfsScenarioFigure";
 import QueueWaveDemo from "../../../components/interactive/QueueWaveDemo";
 
 ## Hook problem
 
-Suppose every hallway takes the same effort to cross. From a starting room, which rooms are one step away, two steps away, and three steps away?
+Suppose every edge has the same cost: one step. From `A`, which nodes are 0, 1, 2, and 3 steps away?
+
+<BfsScenarioFigure lang="en" scenarioId="hook-layers" />
 
 ## First naive idea
 
-You could walk down one path until it ends, then backtrack. That finds rooms, but it may rush far away before checking a nearby room.
+You could walk deeply down one path, such as `A -> B -> D -> G`, before checking nearby alternatives. That can reach a far node while closer options are still waiting.
+
+<BfsScenarioFigure lang="en" scenarioId="naive-deep-path" />
 
 ## Where it breaks
 
-If you need the fewest number of edges, depth-first wandering does not protect the distance order. A far room might be discovered before a closer one.
+If discovery order is allowed to go deep, it no longer guarantees nondecreasing distance from the start. The small directed comparison isolates the policy difference: a FIFO queue preserves layers, while a stack-like policy can expose deeper nodes first.
+
+<BfsScenarioFigure lang="en" scenarioId="queue-vs-stack" />
 
 ## The core invention
 
-BFS keeps a queue. When a node is discovered, it waits behind everything already in the queue. That first-in, first-out rule makes the search expand in layers.
+BFS keeps a queue: discovered nodes wait in first-in, first-out order. When `B` discovers `D` and `E`, `C` still stays in front of them because `C` was discovered earlier.
+
+<BfsScenarioFigure lang="en" scenarioId="fifo-repair" />
 
 ## Interactive visual demo
 
@@ -42,47 +51,74 @@ BFS keeps a queue. When a node is discovered, it waits behind everything already
 
 ## Formal version
 
-Breadth-first search starts from a source node, visits undiscovered neighbors, and processes nodes in queue order. In an unweighted graph, the first time BFS discovers a node is through a shortest path by edge count.
+BFS starts from a source `s`, discovers undiscovered neighbors, records `distance[neighbor] = distance[current] + 1`, records `parent[neighbor] = current`, and enqueues the neighbor.
+
+This page uses `discovered` or `visited` for nodes that have already been found and queued. `expanded` means a node has been dequeued and fully scanned.
+
+<BfsScenarioFigure lang="en" scenarioId="formal-state" />
 
 ## Implementation sketch
 
 ```ts
 function bfs(start: string, graph: Record<string, string[]>) {
-  const visited = new Set([start]);
   const queue = [start];
+  let head = 0;
+  const visited = new Set([start]);
+  const distance: Record<string, number> = { [start]: 0 };
+  const parent: Record<string, string | undefined> = { [start]: undefined };
 
-  while (queue.length > 0) {
-    const node = queue.shift()!;
-    for (const neighbor of graph[node]) {
-      if (!visited.has(neighbor)) {
-        visited.add(neighbor);
-        queue.push(neighbor);
-      }
+  while (head < queue.length) {
+    const current = queue[head++];
+    for (const neighbor of graph[current]) {
+      if (visited.has(neighbor)) continue;
+      visited.add(neighbor);
+      distance[neighbor] = distance[current] + 1;
+      parent[neighbor] = current;
+      queue.push(neighbor);
     }
   }
 
-  return visited;
+  return { distance, parent };
 }
 ```
 
+The visual "dequeue" maps to `queue[head++]`, not `queue.shift()`, so the TypeScript sketch keeps linear-time queue behavior.
+
+<BfsScenarioFigure lang="en" scenarioId="code-trace" />
+
 ## Correctness intuition
 
-The queue never lets a distance-2 node cut in front of a distance-1 node. More generally, nodes leave the queue in nondecreasing distance from the start.
+The queue can contain a boundary like `[remaining layer k | newly discovered layer k+1]`. The key is that all remaining layer-`k` nodes stay before layer-`k+1` nodes, so a farther node cannot expand early.
+
+<BfsScenarioFigure lang="en" scenarioId="layer-barrier" />
 
 ## Complexity
 
-With an adjacency list, BFS visits each node once and scans each edge once, so the running time is `O(V + E)`. The queue and visited set use `O(V)` space.
+With an adjacency list, BFS discovers each node once and scans each adjacency row when that node expands. The total time is `O(V + E)`, and the queue, distance table, parent table, and visited set use `O(V)` space.
+
+<BfsScenarioFigure lang="en" scenarioId="edge-scan-cost" />
 
 ## Common confusions
 
-BFS gives shortest paths by number of edges, not by total weight. If edges have different costs, the queue rule is no longer enough.
+Marking a node when it is discovered prevents duplicate queue entries. In the trace, `E` and `F` both try `G`, but `G` keeps the parent from its first discovery.
+
+<BfsScenarioFigure lang="en" scenarioId="visited-timing" />
+
+BFS finds shortest paths by edge count only. If edges have different costs, the fewest-edge path may not be the cheapest path.
+
+<BfsScenarioFigure lang="en" scenarioId="weighted-counterexample" />
+
+Distance is a number. Parent pointers recover an actual path tree.
+
+<BfsScenarioFigure lang="en" scenarioId="parent-vs-distance" />
 
 ## Connections in the graph
 
-BFS depends on graph basics. Dijkstra's algorithm keeps the frontier idea, but changes how the next node is chosen when edges have weights.
+BFS depends on graph basics: it repeatedly asks for the current node's immediate neighbors. Dijkstra keeps the frontier-and-distance idea, but chooses the next node by smallest total cost instead of queue order.
 
 ## Exercises
 
-1. In the demo, why does `C` expand before `D`?
-2. What changes if the queue is replaced with a stack?
-3. Can BFS revisit a node and still keep the same shortest-distance guarantee?
+1. After expanding `B`, why does `C` stay before `D` and `E`?
+2. When `E` scans `G`, why does `parent[G]` stay `D`?
+3. What changes if the queue is replaced by a stack?
+4. Why does the weighted triangle require Dijkstra instead of BFS?
