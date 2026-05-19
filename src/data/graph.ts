@@ -150,6 +150,46 @@ export const graphNodes: GraphNode[] = [
     status: "draft",
     conceptType: "concept",
     position: { x: 1000, y: 420 }
+  },
+  {
+    id: "confusion-matrix",
+    label: {
+      en: "Confusion Matrix",
+      zh: "混淆矩阵"
+    },
+    status: "draft",
+    conceptType: "concept",
+    position: { x: 90, y: 650 }
+  },
+  {
+    id: "precision",
+    label: {
+      en: "Precision",
+      zh: "精确率"
+    },
+    status: "draft",
+    conceptType: "concept",
+    position: { x: 310, y: 650 }
+  },
+  {
+    id: "recall",
+    label: {
+      en: "Recall",
+      zh: "召回率"
+    },
+    status: "draft",
+    conceptType: "concept",
+    position: { x: 530, y: 650 }
+  },
+  {
+    id: "f1-score",
+    label: {
+      en: "F1 Score",
+      zh: "F1 分数"
+    },
+    status: "draft",
+    conceptType: "concept",
+    position: { x: 760, y: 650 }
   }
 ];
 
@@ -269,6 +309,51 @@ export const graphEdges: GraphEdge[] = [
     reason: {
       en: "The target language and satisfiability structure are fixed by SAT before introducing this concrete reduction.",
       zh: "在介绍这一具体归约前，先有 SAT 的目标语言与可满足性形式框架。"
+    }
+  },
+  {
+    from: "confusion-matrix",
+    to: "precision",
+    type: "uses",
+    reason: {
+      en: "Precision uses the predicted-positive part of the confusion matrix to ask how many positive predictions were correct.",
+      zh: "精确率使用混淆矩阵中预测为正类的部分，询问正类预测里有多少是真的。"
+    }
+  },
+  {
+    from: "confusion-matrix",
+    to: "recall",
+    type: "uses",
+    reason: {
+      en: "Recall uses the actual-positive row of the confusion matrix to ask how many real positives were found.",
+      zh: "召回率使用混淆矩阵中真实正类这一行，询问真实正类里有多少被抓住。"
+    }
+  },
+  {
+    from: "precision",
+    to: "recall",
+    type: "contrasts",
+    reason: {
+      en: "Precision judges positive predictions, while recall judges real positives covered.",
+      zh: "精确率评估正类预测是否可信，召回率评估真实正类是否被覆盖。"
+    }
+  },
+  {
+    from: "precision",
+    to: "f1-score",
+    type: "uses",
+    reason: {
+      en: "F1 uses precision as one input in its harmonic balance formula.",
+      zh: "F1 将精确率作为调和均值的一侧。"
+    }
+  },
+  {
+    from: "recall",
+    to: "f1-score",
+    type: "uses",
+    reason: {
+      en: "F1 uses recall as the other input in its harmonic balance formula.",
+      zh: "F1 将召回率作为另一侧输入。"
     }
   }
 ];

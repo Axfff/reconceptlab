@@ -1,0 +1,258 @@
+---
+id: f1-score
+locale: zh
+title: F1 分数
+summary: 将精确率（precision）和召回率（recall）合并为一个平衡分数。
+status: draft
+translationStatus: needs-review
+difficulty: beginner
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - classification
+prerequisites:
+  - precision
+  - recall
+next: []
+createdAt: 2026-05-18
+updatedAt: 2026-05-18
+---
+
+import F1BalanceDemo from "../../../components/interactive/F1BalanceDemo";
+import F1ScenarioFigure from "../../../components/interactive/F1ScenarioFigure";
+
+## 问题起点：一把尺子看两个问题
+
+在同一组 12 封邮件上：
+
+- `TP = 3`
+- `FP = 2`
+- `FN = 3`
+- `TN = 4`
+
+已知：
+
+- `精确率 P = TP / (TP + FP) = 3 / 5 = 0.6`
+- `召回率 R = TP / (TP + FN) = 3 / 6 = 0.5`
+
+用户希望得到一个“总评分”。
+
+<F1ScenarioFigure lang="zh" scenarioId="metric-cards" />
+
+## 第一个朴素想法：算术平均
+
+自然会想到：
+
+$$
+\frac{P + R}{2} = \frac{0.6 + 0.5}{2} = 0.55
+$$
+
+看起来像一个合适的平衡数字。
+
+<F1ScenarioFigure lang="zh" scenarioId="naive-vs-harmonic" />
+
+## 它为何会误导
+
+同样的平均值也会出现在两端失衡场景：
+
+- `P = 1.0, R = 0.1`
+- `P = 0.1, R = 1.0`
+
+它们都是 `0.55`，但单侧很差意味着整体行为仍然有问题。
+
+<F1ScenarioFigure lang="zh" scenarioId="extreme-imbalance" />
+
+## 核心发明：用调和平均平衡两端
+
+定义为精确率和召回率的调和平均：
+
+$$
+F_1 = \frac{2PR}{P + R}
+$$
+
+本例代入：
+
+$$
+F_1 = \frac{2\cdot 0.6\cdot 0.5}{0.6 + 0.5}
+ = \frac{6}{11}
+ \approx 0.545
+$$
+
+因为弱的一侧会拉低，结果比算术平均更贴近瓶颈。
+
+<F1ScenarioFigure lang="zh" scenarioId="harmonic-balance" />
+
+## 公式与计数形式
+
+也可以直接用计数计算，不依赖先验中间值：
+
+$$
+F_1 = \frac{2TP}{2TP + FP + FN}
+$$
+
+代入本例：
+
+$$
+\frac{2\cdot 3}{2\cdot 3 + 2 + 3}
+ = \frac{6}{11}
+ \approx 0.545
+$$
+
+在精确率和召回率都有定义的常规情况，两种形式一致。
+
+<F1ScenarioFigure lang="zh" scenarioId="formula-count" />
+
+## 互动演示：预设情景实验
+
+下面切换多个预设，观察 `P`、`R`、算术平均和 `F1` 的联动。
+
+<F1BalanceDemo client:load lang="zh" />
+
+无 JS 回退静态表（与上图一致）：
+
+<table className="pnp-mini-table">
+  <caption>F1 预设对照表（无 JS 回退）</caption>
+  <thead>
+    <tr>
+      <th>预设</th>
+      <th>TP</th>
+      <th>FP</th>
+      <th>FN</th>
+      <th>精确率 P</th>
+      <th>召回率 R</th>
+      <th>算术平均</th>
+      <th>F1</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th scope="row">固定样本</th>
+      <td>3</td>
+      <td>2</td>
+      <td>3</td>
+      <td>0.6</td>
+      <td>0.5</td>
+      <td>0.55</td>
+      <td>0.545</td>
+    </tr>
+    <tr>
+      <th scope="row">高精确率，低召回率</th>
+      <td>1</td>
+      <td>0</td>
+      <td>9</td>
+      <td>1.0</td>
+      <td>0.1</td>
+      <td>0.55</td>
+      <td>0.182</td>
+    </tr>
+    <tr>
+      <th scope="row">低精确率，高召回率</th>
+      <td>1</td>
+      <td>9</td>
+      <td>0</td>
+      <td>0.1</td>
+      <td>1.0</td>
+      <td>0.55</td>
+      <td>0.182</td>
+    </tr>
+    <tr>
+      <th scope="row">双高</th>
+      <td>9</td>
+      <td>1</td>
+      <td>1</td>
+      <td>0.9</td>
+      <td>0.9</td>
+      <td>0.9</td>
+      <td>0.9</td>
+    </tr>
+    <tr>
+      <th scope="row">无正类证据</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>不可用</td>
+      <td>不可用</td>
+      <td>不可用</td>
+      <td>不可用</td>
+    </tr>
+    <tr>
+      <th scope="row">无 TP 的错误</th>
+      <td>0</td>
+      <td>2</td>
+      <td>3</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+  </tbody>
+</table>
+
+### 无 JS 回退中的指标解释
+
+交互面板显示的公式是：
+
+- 精确率：`TP / (TP + FP)`
+- 召回率：`TP / (TP + FN)`
+- 算术平均：`(P + R) / 2`
+- F1：`2TP / (2TP + FP + FN)`
+
+<F1ScenarioFigure lang="zh" scenarioId="edge-cases" />
+
+## 边界与分支约定
+
+| 情况 | 条件 | F1 |
+|---|---|---|
+| 不可用 | 源指标缺失（在“由精确率/召回率推导”路径） | 不可用 |
+| 不可用 | `2TP + FP + FN = 0`（无正类证据） | 不可用 |
+| 有定义的 0 | `TP = 0` 且 `FP` 或 `FN` 有值 | `0` |
+| 正常 | 其他有效计数 | `2TP / (2TP + FP + FN)` |
+
+分母为零的分支负责避免 `0/0` 变成 `NaN`；当 `TP = 0` 但存在 `FP` 或 `FN` 时，结果是有定义的 `0`。
+
+<F1ScenarioFigure lang="zh" scenarioId="formula-count" />
+
+## 正确性直觉
+
+F1 依赖的是精确率和召回率：
+
+- `FP` 只出现在精确率分母 `TP + FP`，让精确率下滑；
+- `FN` 只出现在召回率分母 `TP + FN`，让召回率下滑；
+- `TN` 不参与精确率和召回率，也不直接影响 F1。
+
+<F1ScenarioFigure lang="zh" scenarioId="correctness-panel" />
+
+## 复杂度
+
+- 已有 `TP/FP/FN` 计数时：`O(1)`
+- 先扫描样本再计数：`O(n)`，再 `O(1)` 计算 F1
+
+<F1ScenarioFigure lang="zh" scenarioId="complexity" />
+
+## 常见误区
+
+<F1ScenarioFigure lang="zh" scenarioId="common-confusions" />
+
+- `F1` 不是准确率；准确率看的是全部 12 封样本。
+- `F1` 不是精确率或召回率之一；它是两者合成。
+- `F1` 不是只有 TN 才能决定；TN 不在精确率/召回率里。
+- `不可用` 与 `0` 不同：当有误报/漏报但 `TP = 0` 时，应读作 `0`。
+
+## 图谱连接
+
+<F1ScenarioFigure lang="zh" scenarioId="graph-strip" />
+
+图中关系是：
+
+- `precision -> f1-score`
+- `recall -> f1-score`
+
+## 练习
+
+1. 用两种公式算一遍固定样本的 F1：`2PR/(P+R)` 与 `2TP/(2TP+FP+FN)`。
+2. 为什么 `P = 1.0, R = 0.1` 和 `P = 0.1, R = 1.0` 算术平均同样是 `0.55`，但 F1 都低得多？
+3. 无正类证据（`TP=FP=FN=0`）下应渲染什么？
+4. 分别加一条 `FP`、加一条 `FN` 后（分别变为 `FP=3` 或 `FN=4`）F1 如何变化？
+
+<F1ScenarioFigure lang="zh" scenarioId="edge-cases" />

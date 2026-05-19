@@ -16,6 +16,15 @@ For every planned node, include a section-by-section visual inventory. Prefer de
 - [x] `graham-scan` - convex hull algorithm node. Design: [graham-scan-design.md](graham-scan-design.md).
 - [x] `bentley-ottmann` - sweep-line segment-intersection reporting algorithm node. Design: [bentley-ottmann-design.md](bentley-ottmann-design.md).
 
+## Machine Learning Metrics
+
+Keep the first metrics cluster concrete and binary-classification focused. Introduce the count table first, then split the two "how many of the model's alarms were right?" and "how many real positives did it catch?" questions before combining them into a balanced score.
+
+- [x] `confusion-matrix` - count true positives, false positives, true negatives, and false negatives for a binary classifier before naming derived metrics. Design: [confusion-matrix-design.md](confusion-matrix-design.md).
+- [x] `precision` - measure how trustworthy positive predictions are using the positive-prediction column of the confusion matrix. Design: [precision-design.md](precision-design.md).
+- [x] `recall` - measure how many actual positives are found using the actual-positive row of the confusion matrix. Design: [recall-design.md](recall-design.md).
+- [x] `f1-score` - combine precision and recall with their harmonic mean, and show why the smaller metric pulls the score down. Design: [f1-score-design.md](f1-score-design.md).
+
 ## NP-Hardness and Approximation
 
 First batch extracted from `/Users/zhaoj/Documents/Assignment/AdvancedAlgorithm/Slides/9.NP-hard.pdf`. Keep the first implementation path learner-facing and reduction-oriented: build the language of efficient verification, then show how hardness moves through reductions, then finish with the approximation pivot.

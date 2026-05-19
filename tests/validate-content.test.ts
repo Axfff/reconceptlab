@@ -145,6 +145,54 @@ const validRecords: ContentRecord[] = [
     localeFromPath: "zh",
     filePath: "src/content/nodes/circuit-sat-to-sat/zh.mdx",
     data: { id: "circuit-sat-to-sat", locale: "zh", prerequisites: ["polynomial-time-reductions", "circuit-sat", "sat"] }
+  },
+  {
+    conceptIdFromPath: "confusion-matrix",
+    localeFromPath: "en",
+    filePath: "src/content/nodes/confusion-matrix/en.mdx",
+    data: { id: "confusion-matrix", locale: "en", prerequisites: [] }
+  },
+  {
+    conceptIdFromPath: "confusion-matrix",
+    localeFromPath: "zh",
+    filePath: "src/content/nodes/confusion-matrix/zh.mdx",
+    data: { id: "confusion-matrix", locale: "zh", prerequisites: [] }
+  },
+  {
+    conceptIdFromPath: "precision",
+    localeFromPath: "en",
+    filePath: "src/content/nodes/precision/en.mdx",
+    data: { id: "precision", locale: "en", prerequisites: ["confusion-matrix"] }
+  },
+  {
+    conceptIdFromPath: "precision",
+    localeFromPath: "zh",
+    filePath: "src/content/nodes/precision/zh.mdx",
+    data: { id: "precision", locale: "zh", prerequisites: ["confusion-matrix"] }
+  },
+  {
+    conceptIdFromPath: "recall",
+    localeFromPath: "en",
+    filePath: "src/content/nodes/recall/en.mdx",
+    data: { id: "recall", locale: "en", prerequisites: ["confusion-matrix"] }
+  },
+  {
+    conceptIdFromPath: "recall",
+    localeFromPath: "zh",
+    filePath: "src/content/nodes/recall/zh.mdx",
+    data: { id: "recall", locale: "zh", prerequisites: ["confusion-matrix"] }
+  },
+  {
+    conceptIdFromPath: "f1-score",
+    localeFromPath: "en",
+    filePath: "src/content/nodes/f1-score/en.mdx",
+    data: { id: "f1-score", locale: "en", prerequisites: ["precision", "recall"] }
+  },
+  {
+    conceptIdFromPath: "f1-score",
+    localeFromPath: "zh",
+    filePath: "src/content/nodes/f1-score/zh.mdx",
+    data: { id: "f1-score", locale: "zh", prerequisites: ["precision", "recall"] }
   }
 ];
 

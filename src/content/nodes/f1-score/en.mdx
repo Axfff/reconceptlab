@@ -1,0 +1,319 @@
+---
+id: f1-score
+locale: en
+title: F1 Score
+summary: Combine precision and recall into one balance score that is penalized by the weaker side.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - classification
+prerequisites:
+  - precision
+  - recall
+next: []
+createdAt: 2026-05-18
+updatedAt: 2026-05-18
+---
+
+import F1BalanceDemo from "../../../components/interactive/F1BalanceDemo";
+import F1ScenarioFigure from "../../../components/interactive/F1ScenarioFigure";
+
+## Hook problem: one score for two questions
+
+In the same 12-email fixture used by precision and recall:
+
+- `TP = 3`
+- `FP = 2`
+- `FN = 3`
+- `TN = 4`
+
+We already trust:
+
+- `precision = TP / (TP + FP) = 3 / 5 = 0.6`
+- `recall = TP / (TP + FN) = 3 / 6 = 0.5`
+
+But a reviewer asks for a **single balance value** that matches the overall behavior.
+
+<F1ScenarioFigure lang="en" scenarioId="metric-cards" />
+
+## First naive idea: take arithmetic mean
+
+A natural first attempt is:
+
+$$
+\frac{P + R}{2} = \frac{0.6 + 0.5}{2} = 0.55
+$$
+
+This reads nicely as a single number, and it seems fair.
+
+<F1ScenarioFigure lang="en" scenarioId="naive-vs-harmonic" />
+
+## Where naïve averaging can mislead
+
+Arithmetic mean can look high even when one side is weak.
+
+Compare:
+
+- `P = 1.0, R = 0.1`
+- `P = 0.1, R = 1.0`
+
+Both have the same mean `0.55`, but both should not be treated equally if one side is almost useless.
+
+<F1ScenarioFigure lang="en" scenarioId="extreme-imbalance" />
+
+## Core idea: harmonic balance
+
+`F1` is the harmonic mean of precision and recall:
+
+$$
+F_1 = \frac{2PR}{P + R}
+$$
+
+For this fixture:
+
+$$
+F_1 = \frac{2\cdot 0.6\cdot 0.5}{0.6 + 0.5}
+ = \frac{6}{11}
+ \approx 0.545
+$$
+
+This is lower than 0.55 because the weak recall pulls the score down.
+
+<F1ScenarioFigure lang="en" scenarioId="harmonic-balance" />
+
+## Formal and count form
+
+From counts you can avoid recomputing intermediate metrics:
+
+$$
+F_1
+= \frac{2TP}{2TP + FP + FN}
+$$
+
+For this fixture:
+
+$$
+\frac{2\cdot3}{2\cdot3 + 2 + 3}
+= \frac{6}{11}
+ \approx 0.545
+$$
+
+Both formulas are equivalent whenever precision and recall are defined.
+
+<F1ScenarioFigure lang="en" scenarioId="formula-count" />
+
+## Interactive preset lab
+
+This demo lets you switch preset count cases and watch precision, recall, arithmetic mean, and F1 update in one view.
+
+<F1BalanceDemo client:load lang="en" />
+
+Static no-JS fallback:
+
+<table className="pnp-mini-table">
+  <caption>F1 preset comparison (no-JS fallback)</caption>
+  <thead>
+    <tr>
+      <th>Preset</th>
+      <th>TP</th>
+      <th>FP</th>
+      <th>FN</th>
+      <th>Precision</th>
+      <th>Recall</th>
+      <th>Arithmetic mean</th>
+      <th>F1</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th scope="row">Fixture</th>
+      <td>3</td>
+      <td>2</td>
+      <td>3</td>
+      <td>0.6</td>
+      <td>0.5</td>
+      <td>0.55</td>
+      <td>0.545</td>
+    </tr>
+    <tr>
+      <th scope="row">High precision, low recall</th>
+      <td>1</td>
+      <td>0</td>
+      <td>9</td>
+      <td>1.0</td>
+      <td>0.1</td>
+      <td>0.55</td>
+      <td>0.182</td>
+    </tr>
+    <tr>
+      <th scope="row">Low precision, high recall</th>
+      <td>1</td>
+      <td>9</td>
+      <td>0</td>
+      <td>0.1</td>
+      <td>1.0</td>
+      <td>0.55</td>
+      <td>0.182</td>
+    </tr>
+    <tr>
+      <th scope="row">Both strong</th>
+      <td>9</td>
+      <td>1</td>
+      <td>1</td>
+      <td>0.9</td>
+      <td>0.9</td>
+      <td>0.9</td>
+      <td>0.9</td>
+    </tr>
+    <tr>
+      <th scope="row">No positive-side evidence</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>not available</td>
+      <td>not available</td>
+      <td>not available</td>
+      <td>not available</td>
+    </tr>
+    <tr>
+      <th scope="row">Errors with no true positives</th>
+      <td>0</td>
+      <td>2</td>
+      <td>3</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+  </tbody>
+</table>
+
+### Arithmetic mean visibility in the demo
+
+The preset panel shows:
+
+- precision = `TP / (TP + FP)`
+- recall = `TP / (TP + FN)`
+- arithmetic mean = `(P + R) / 2`
+- `F1 = 2TP / (2TP + FP + FN)`
+
+<F1ScenarioFigure lang="en" scenarioId="edge-cases" />
+
+## Edge cases and branch behavior
+
+| Branch | Condition | F1 |
+|---|---|---|
+| unavailable | required source metric missing (for derived metric path) | not available |
+| unavailable | `2TP + FP + FN = 0` | not available |
+| defined 0 | `TP = 0` but `FP` or `FN` > 0 | 0 |
+| normal | all other valid counts | `2TP / (2TP + FP + FN)` |
+
+The denominator-zero branch prevents `0/0` from rendering as `NaN`; the `TP = 0` branch with `FP` or `FN` present deliberately renders a defined zero.
+
+<F1ScenarioFigure lang="en" scenarioId="formula-count" />
+
+## Correctness intuition
+
+F1 is only affected by precision and recall; therefore only three counts appear:
+
+- `FP` hurts precision (`TP + FP`)
+- `FN` hurts recall (`TP + FN`)
+- `TN` is not in either metric numerator or denominator
+
+<F1ScenarioFigure lang="en" scenarioId="correctness-panel" />
+
+## Complexity
+
+Once counts are known, this is constant-time:
+
+- `precision`, `recall`, and F1: `O(1)`
+
+If you only have examples, scanning to build `TP`, `FP`, and `FN` is `O(n)` with `O(1)` extra space, then `O(1)` for score.
+
+<F1ScenarioFigure lang="en" scenarioId="complexity" />
+
+## Implementation sketch
+
+```ts
+interface Counts {
+  tp: number;
+  fp: number;
+  fn: number;
+}
+
+type F1Result = {
+  precision: number | null;
+  recall: number | null;
+  numerator: number;
+  denominator: number;
+  value: number | null;
+};
+
+function f1FromPrecisionRecall(precision: number | null, recall: number | null): F1Result {
+  if (precision === null || recall === null) {
+    return { precision, recall, numerator: 0, denominator: 0, value: null };
+  }
+  const numerator = 2 * precision * recall;
+  const denominator = precision + recall;
+  return {
+    precision,
+    recall,
+    numerator,
+    denominator,
+    value: denominator === 0 ? 0 : numerator / denominator
+  };
+}
+
+function f1FromCounts(counts: Counts): F1Result {
+  const precision = precisionFromCounts({ tp: counts.tp, fp: counts.fp }).value;
+  const recall = recallFromCounts({ tp: counts.tp, fn: counts.fn }).value;
+  const numerator = 2 * counts.tp;
+  const denominator = 2 * counts.tp + counts.fp + counts.fn;
+
+  if (denominator === 0) {
+    return { precision, recall, numerator, denominator, value: null };
+  }
+  if (counts.tp === 0) {
+    return { precision, recall, numerator, denominator, value: 0 };
+  }
+  return { precision, recall, numerator, denominator, value: numerator / denominator };
+}
+
+function formatMetric(value: number | null, locale: "en" | "zh") {
+  return value === null ? (locale === "en" ? "not available" : "不可用") : Number(value.toFixed(3)).toString();
+}
+```
+
+## Common confusions
+
+<F1ScenarioFigure lang="en" scenarioId="common-confusions" />
+
+- **F1 is not accuracy.** Accuracy uses all four cells.
+- **F1 is not precision or recall alone.** It needs both.
+- **F1 does not use TN directly.** TN does not appear in precision/recall.
+- **0 is different from unavailable.** If no true positive but there are FP/FN, F1 can be exactly `0`.
+
+## Graph connection
+
+<F1ScenarioFigure lang="en" scenarioId="graph-strip" />
+
+In the graph, `f1-score` is a dependent node from:
+
+- `precision -> f1-score`
+- `recall -> f1-score`
+
+## Exercises
+
+1. Compute `F1` from fixture counts both as `2PR/(P+R)` and `2TP/(2TP + FP + FN)`.
+2. Why do `P = 1.0, R = 0.1` and `P = 0.1, R = 1.0` have the same arithmetic mean but lower balance score?
+3. In no-positive-evidence case (`TP=FP=FN=0`), what should render and why?
+4. Compare `FP` versus `FN`:
+   - adding one `FP`: `TP=3, FP=3, FN=3`
+   - adding one `FN`: `TP=3, FP=2, FN=4`
+   - what is the new `F1` in each case?
+
+<F1ScenarioFigure lang="en" scenarioId="edge-cases" />

@@ -1,0 +1,208 @@
+---
+id: recall
+locale: zh
+title: 召回率
+summary: 衡量真实正类中有多少被模型找到了。
+status: draft
+translationStatus: needs-review
+difficulty: beginner
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - classification
+prerequisites:
+  - confusion-matrix
+next: []
+createdAt: 2026-05-18
+updatedAt: 2026-05-18
+---
+
+import RecallScenarioFigure from "../../../components/interactive/RecallScenarioFigure";
+import RecallRowDemo from "../../../components/interactive/RecallRowDemo";
+import {
+  buildRecallTrace,
+  recallFromCounts,
+  recallUnavailableText
+} from "../../../components/interactive/recallTrace";
+import {
+  confusionMatrixExamples,
+  labelForCell,
+  positiveLabel
+} from "../../../components/interactive/confusionMatrixTrace";
+
+## 问题起点：真实 spam 抓了多少？
+
+模型评估了 12 封邮件，你想回答的核心问题是：
+
+**在真实为 spam 的邮件里，模型抓到了多少？**
+
+<RecallScenarioFigure lang="zh" scenarioId="hook-funnel" />
+
+## 第一种朴素想法：仍用准确率
+
+如果继续用总体正确率：
+
+$$
+\frac{TP + TN}{TP + FP + TN + FN}
+= \frac{3 + 4}{12}
+= \frac{7}{12}
+$$
+
+它告诉你“整体对了多少”，但不回答真实正类覆盖率。
+
+## 为什么不够：漏报 (`FN`) 在这个问题里很关键
+
+`e4`、`e8`、`e12` 都是 `FN`：
+
+- `e4`: 真实是 spam，但预测 not-spam（漏报）
+- `e8`: 真实是 spam，但预测 not-spam（漏报）
+- `e12`: 真实是 spam，但预测 not-spam（漏报）
+
+所以对召回率来说，分母是 `TP + FN = 6`，不是 12。
+
+<RecallScenarioFigure lang="zh" scenarioId="accuracy-vs-recall" />
+
+## 核心发明：看“真实正类”一行
+
+矩阵约定为：
+
+$$
+\text{actual 行},\ \text{predicted 列}
+$$
+
+召回率只读真实正类行：
+
+$$
+\text{recall} = \frac{TP}{TP + FN}
+$$
+
+本例：
+
+$$
+\frac{3}{3 + 3}
+= \frac{3}{6}
+= 0.5
+$$
+
+<RecallScenarioFigure lang="zh" scenarioId="actual-positive-row" />
+<RecallScenarioFigure lang="zh" scenarioId="recall-fraction" />
+
+## 交互演示：逐个处理真实正类
+
+交互演示仅处理 `e1`, `e4`, `e5`, `e8`, `e10`, `e12`，按固定顺序逐步给出分子/分母和当前召回率。
+
+<RecallRowDemo client:load lang="zh" />
+
+无 JS 时的账本（与交互一致）：
+
+<table className="pnp-mini-table">
+  <caption>真实 spam 召回追踪账本（无 JS 回退）</caption>
+  <thead>
+    <tr>
+      <th>步骤</th>
+      <th>邮件</th>
+      <th>主题</th>
+      <th>真实</th>
+      <th>预测</th>
+      <th>格子</th>
+      <th>已捕获正类</th>
+      <th>真实正类已见</th>
+      <th>当前值</th>
+    </tr>
+  </thead>
+  <tbody>
+    {buildRecallTrace(confusionMatrixExamples, positiveLabel).map((step) => {
+      const result = recallFromCounts({ tp: step.caughtPositives, fn: step.actualPositivesSeen - step.caughtPositives });
+      const cell = labelForCell(step.cell, "zh");
+      return (
+        <tr key={step.example.id}>
+          <th scope="row">{step.index + 1}</th>
+          <td>{step.example.id}</td>
+          <td>{step.example.subject.zh}</td>
+          <td>{step.example.actual}</td>
+          <td>{step.example.prediction}</td>
+          <td>{cell.code}</td>
+          <td>{step.caughtPositives}</td>
+          <td>{step.actualPositivesSeen}</td>
+          <td>{`${result.numerator}/${result.denominator} = ${result.value === null ? recallUnavailableText("zh") : Number(result.value.toFixed(3))}`}</td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+## 漏报疼点
+
+召回率直接把漏报放进“真实正类”分母，因此会暴露覆盖损失。
+
+<RecallScenarioFigure lang="zh" scenarioId="missed-spam" />
+
+## 零分母约定
+
+当评估集里没有真实正例时：
+
+- `TP = 0`
+- `FN = 0`
+- `TP + FN = 0`
+- 内部值：`null`
+- 渲染结果：`不可用`
+
+<RecallScenarioFigure lang="zh" scenarioId="edge-case" />
+
+## 实现思路
+
+```ts
+interface RecallCounts {
+  tp: number;
+  fn: number;
+}
+
+function recallFromCounts(counts: RecallCounts) {
+  const denominator = counts.tp + counts.fn;
+  if (denominator === 0) {
+    return { numerator: counts.tp, denominator, value: null };
+  }
+  return { numerator: counts.tp, denominator, value: counts.tp / denominator };
+}
+```
+
+<RecallScenarioFigure lang="zh" scenarioId="implementation" />
+
+## 正确性直觉
+
+真实正类里只有两种情况，且互斥：
+
+- `TP`: 真实 spam 且预测 spam（被抓）
+- `FN`: 真实 spam 且预测 not-spam（漏报）
+
+所以 `TP + FN` 一定等于真实 spam 的数量，当前为 6。
+
+## 复杂度
+
+- 已有 `tp/fn` 计数时：`O(1)`
+- 从示例扫描统计时：`O(n)` 时间、`O(1)` 额外空间
+
+<RecallScenarioFigure lang="zh" scenarioId="common-confusions" />
+
+## 图谱连接
+
+召回率从混淆矩阵的真实正类行派生，可与精确率做边界对照。
+
+<RecallScenarioFigure lang="zh" scenarioId="graph-strip" />
+
+## 练习
+
+1. 为什么 `7/12` 不是召回率？
+2. 在本例里召回率分母是多少，为什么是这个集合？
+3. 计算 `e8` 后的运行值。
+4. `TP + FN = 0` 时应如何渲染？
+5. 列出 `TP` 与 `FN` 各是什么，分别发生在哪些样本。
+
+| 最终参考 |
+|---|
+| `TP + FN = 3 + 3 = 6`, 召回率 `3 / 6 = 0.5`（50%）。 |
+
+| 真实正类样本 |
+|---|
+| `e1`, `e4`, `e5`, `e8`, `e10`, `e12` |

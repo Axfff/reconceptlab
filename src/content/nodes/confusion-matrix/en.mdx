@@ -1,0 +1,234 @@
+---
+id: confusion-matrix
+locale: en
+title: Confusion Matrix
+summary: Count where a binary spam filter was right, and which kinds of mistakes it made.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - classification
+prerequisites: []
+next: []
+createdAt: 2026-05-18
+updatedAt: 2026-05-18
+---
+
+import ConfusionMatrixDemo from "../../../components/interactive/ConfusionMatrixDemo";
+import ConfusionMatrixScenarioFigure from "../../../components/interactive/ConfusionMatrixScenarioFigure";
+import {
+  buildConfusionMatrixLedger,
+  confusionMatrixExamples,
+  finalCounts,
+  positiveLabel,
+  labelForCell
+} from "../../../components/interactive/confusionMatrixTrace";
+
+## Hook problem: evaluate a spam filter
+
+You run a simple classifier that labels each email as `spam` or `not-spam`.
+You need to know **not only how many emails were right**, but **what kind of errors** were made.
+
+This fixed fixture has 12 messages:
+
+<ConfusionMatrixScenarioFigure lang="en" scenarioId="hook-grid" />
+
+## First naive idea
+
+One score is the total number of correct predictions:
+
+`correct / total`.
+
+For these 12 examples, that number is `7 / 12 = 58.3%`.
+
+But it hides a critical split:
+
+<ConfusionMatrixScenarioFigure lang="en" scenarioId="naive-tally" />
+
+## Where it hurts
+
+`e3` and `e4` are both wrong, but they do not cost the same:
+
+- `e3`: not-spam predicted as spam (false alarm),
+- `e4`: spam predicted as not-spam (missed message).
+
+<ConfusionMatrixScenarioFigure lang="en" scenarioId="e3-e4-mistake-contrast" />
+
+## Core invention
+
+Separate the questions:
+
+- Is the truth `actual` yes or no (relative to one chosen positive class)?
+- Is the model output `predicted` yes or no (for the same positive class)?
+
+That gives four buckets.
+
+<ConfusionMatrixScenarioFigure lang="en" scenarioId="quadrant-seed" />
+
+## Interactive trace
+
+Step through the same 12 examples and watch one cell increment each time.
+
+<ConfusionMatrixDemo client:load lang="en" />
+
+The fixture is deterministic, so the same email always drives the same step.
+
+## Formal version
+
+Let `y` be the true label and `\hat{y}` be the predicted label.
+In this node, the positive class is explicitly declared:
+
+`1 = spam`, `0 = not spam`.
+
+Use rows for actual, columns for predicted:
+
+$$
+\begin{array}{c|cc}
+& \hat{y}=1 & \hat{y}=0 \\
+\hline
+y=1 & TP & FN \\
+y=0 & FP & TN
+\end{array}
+$$
+
+Here `1` is a chosen positive class flag, not an intrinsic “goodness” label.
+
+`TP`, `FP`, `TN`, and `FN` are counts in these four cells.
+
+<ConfusionMatrixScenarioFigure lang="en" scenarioId="orientation" />
+
+The one-cell invariant is:
+
+$$
+TP + FP + TN + FN = n.
+$$
+
+`n` is the number of evaluated examples.
+
+The shared example fixture has:
+
+- `TP = 3`
+- `FP = 2`
+- `TN = 4`
+- `FN = 3`
+- `correct = TP + TN = 7`
+- `wrong = FP + FN = 5`
+- `total = 12`
+
+## Implementation sketch
+
+Each email updates exactly one bucket:
+
+```ts
+if (actual === positiveLabel && predicted === positiveLabel) {
+  tp += 1;
+} else if (actual !== positiveLabel && predicted === positiveLabel) {
+  fp += 1;
+} else if (actual !== positiveLabel && predicted !== positiveLabel) {
+  tn += 1;
+} else {
+  fn += 1;
+}
+```
+
+<ConfusionMatrixScenarioFigure lang="en" scenarioId="branch-table" />
+
+## Correctness intuition
+
+The two boolean questions are exhaustive and mutually exclusive.
+
+For a fixed positive label, each example is exactly one of these four combinations:
+
+- actual positive + predicted positive
+- actual negative + predicted positive
+- actual negative + predicted negative
+- actual positive + predicted negative
+
+So each example is assigned to exactly one matrix cell. After 9 emails:
+
+TP = 2, FP = 2, TN = 3, FN = 2, total = 9.
+
+At the end:
+
+TP = 3, FP = 2, TN = 4, FN = 3, total = 12.
+
+<ConfusionMatrixScenarioFigure lang="en" scenarioId="invariant" />
+
+You can read this as the invariance check for every trace prefix:
+
+$$
+TP + FP + TN + FN = \text{processed examples}
+$$
+
+And for the full fixture, processed examples = 12.
+
+## Complexity
+
+The scan is one pass over the examples:
+
+$$
+\text{time} = O(n), \qquad \text{extra space} = O(1).
+$$
+
+Each example contributes one constant-time set of comparisons and one counter increment.
+
+## Common confusions
+
+<ConfusionMatrixScenarioFigure lang="en" scenarioId="common-confusions" />
+
+A useful quick exercise is a positive-class swap. Keep the same underlying predictions but set `positiveLabel = "not-spam"`:
+
+- `TP = 4`
+- `FP = 3`
+- `TN = 3`
+- `FN = 2`
+
+This does not make the dataset better or worse; it only changes what “positive” means.
+
+## Connections
+
+This concept is the base for precision, recall, and f1-score.
+Those nodes are planned but not yet in the graph.
+
+<ConfusionMatrixScenarioFigure lang="en" scenarioId="graph-strip" />
+
+## Static trace ledger (no-JS fallback)
+
+The deterministic ledger below is visible without JavaScript and stays aligned with the interactive demo:
+
+<table className="pnp-mini-table">
+  <caption>Confusion trace over 12 emails</caption>
+  <thead>
+    <tr><th>Step</th><th>Email</th><th>Subject</th><th>Actual</th><th>Predicted</th><th>Cell</th><th>TP</th><th>FP</th><th>TN</th><th>FN</th></tr>
+  </thead>
+  <tbody>
+    {buildConfusionMatrixLedger(confusionMatrixExamples, positiveLabel).map((step) => (
+      <tr key={step.example.id}>
+        <th scope="row">{step.index + 1}</th>
+        <td>{step.example.id}</td>
+        <td>{step.example.subject.en}</td>
+        <td>{step.example.actual}</td>
+        <td>{step.example.prediction}</td>
+        <td>{`${labelForCell(step.cell, "en").code} (${labelForCell(step.cell, "en").full})`}</td>
+        <td>{step.after.tp}</td>
+        <td>{step.after.fp}</td>
+        <td>{step.after.tn}</td>
+        <td>{step.after.fn}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+<p>
+  Invariant check: `{`TP + FP + TN + FN`}` = {finalCounts.tp + finalCounts.fp + finalCounts.tn + finalCounts.fn}.
+</p>
+
+## Exercises
+
+1. Which cell does `e9` reach?
+2. Which cell changes if `positiveLabel` becomes `"not-spam"`?
+3. In this node, if an email is predicted as spam but is actually not-spam, what should happen to precision later?
+4. Why is a single wrong-rate number less informative than the four-cell table?

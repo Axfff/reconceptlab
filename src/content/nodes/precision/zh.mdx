@@ -1,0 +1,188 @@
+---
+id: precision
+locale: zh
+title: 精确率
+summary: 衡量模型预测为正类时，有多少次是真的。
+status: draft
+translationStatus: needs-review
+difficulty: beginner
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - classification
+prerequisites:
+  - confusion-matrix
+next: []
+createdAt: 2026-05-18
+updatedAt: 2026-05-18
+---
+
+import PrecisionScenarioFigure from "../../../components/interactive/PrecisionScenarioFigure";
+import PrecisionColumnDemo from "../../../components/interactive/PrecisionColumnDemo";
+import {
+  buildPrecisionTrace,
+  precisionFromCounts,
+  precisionUnavailableText
+} from "../../../components/interactive/precisionTrace";
+import { confusionMatrixExamples, labelForCell, positiveLabel } from "../../../components/interactive/confusionMatrixTrace";
+
+## 问题起点：报警该不该信？
+
+你的模型给 12 封邮件打标签，`spam` 是告警。你关心的是：**模型把一封邮件标成 spam 时，能信几成？**
+
+<PrecisionScenarioFigure lang="zh" scenarioId="hook-funnel" />
+
+先算全局正确率看起来是：
+
+$$
+\frac{TP + TN}{TP + FP + TN + FN}
+= \frac{3 + 4}{12}
+= \frac{7}{12}
+$$
+
+这是 `58.3%`，但它混合了两类问题：
+
+- 全部 12 封邮件有多少是对的？
+- 所有被报告为 spam 的告警有多少是真的？
+
+## 第一个朴素想法：沿用全局分母
+
+如果仍然用全局分母，非告警样本会和告警样本一起入账：
+
+<PrecisionScenarioFigure lang="zh" scenarioId="accuracy-vs-precision" />
+
+## 它为什么会疼
+
+`e3` 和 `e4` 都是错例，但影响不同：
+
+- `e3`：真实是非垃圾邮件却被报为 spam (`FP`)，直接降低告警可信度；
+- `e4`：真实是垃圾邮件却被放过 (`FN`)，更接近“召回率损失”，不是“告警错误”。
+
+## 核心发明：只看正类预测这一列
+
+精确率的问题是：**预测为正类（spam）里，有多少是正确的**。
+
+$$
+\text{precision} = \frac{TP}{TP + FP}
+$$
+
+所以这个固定样本得到：
+
+$$
+\frac{3}{3 + 2} = \frac{3}{5} = 0.6
+$$
+
+## 互动演示：逐个处理告警
+
+这个节点只处理预测为 spam 的五条邮件，顺序固定：
+
+`e1`, `e3`, `e5`, `e9`, `e10`
+
+<PrecisionColumnDemo client:load lang="zh" />
+
+无 JS 时，页面下方账本仍然可直接读取：
+
+<table className="pnp-mini-table">
+  <caption>精确率追踪账本（无 JS 回退）</caption>
+  <thead>
+    <tr>
+      <th>步骤</th>
+      <th>邮件</th>
+      <th>主题</th>
+      <th>真实</th>
+      <th>预测</th>
+      <th>格子</th>
+      <th>可信告警</th>
+      <th>全部告警</th>
+      <th>当前值</th>
+    </tr>
+  </thead>
+  <tbody>
+    {buildPrecisionTrace(confusionMatrixExamples, positiveLabel).map((step) => {
+      const result = precisionFromCounts({ tp: step.trustedAlarms, fp: step.allAlarms - step.trustedAlarms });
+      const cell = labelForCell(step.cell, "zh");
+      return (
+        <tr key={step.example.id}>
+          <th scope="row">{step.index + 1}</th>
+          <td>{step.example.id}</td>
+          <td>{step.example.subject.zh}</td>
+          <td>{step.example.actual}</td>
+          <td>{step.example.prediction}</td>
+          <td>{cell.code}</td>
+          <td>{step.trustedAlarms}</td>
+          <td>{step.allAlarms}</td>
+          <td>{result.value === null ? precisionUnavailableText("zh") : `${result.numerator}/${result.denominator} = ${Number(result.value.toFixed(3))}`}</td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+## 正确性直觉
+
+对每个被处理的告警而言，结果只可能是 `TP` 或 `FP`，所以 `TP + FP` 就是“所有告警”的计数。
+
+不进入精确率分母的样本是：
+
+- `TN + FN` 在外：`e2`, `e4`, `e6`, `e7`, `e8`, `e11`, `e12`
+- 漏报的真实垃圾邮件在外：`e4`, `e8`, `e12`
+
+到末尾：
+
+- `TP = 3`
+- `FP = 2`
+- `precision = 3 / 5 = 0.6`
+
+## 实现思路
+
+```ts
+interface Counts {
+  tp: number;
+  fp: number;
+}
+
+function precisionFromCounts(counts: Counts) {
+  const denominator = counts.tp + counts.fp;
+  if (denominator === 0) {
+    return { numerator: counts.tp, denominator, value: null };
+  }
+  return { numerator: counts.tp, denominator, value: counts.tp / denominator };
+}
+```
+
+## 复杂度
+
+如果你已经有 `tp/fp` 计数：
+
+- `O(1)` 即可给出精确率；
+- 先扫描一次再统计时是 `O(n)` 时间、额外 `O(1)` 空间。
+
+## 常见误区
+
+- 精确率不是准确率，准确率看全部 12 封。
+- 精确率不是召回率，召回率看实际为 spam 的覆盖率。
+- 精确率高不代表漏报少：`e4`、`e8`、`e12` 在分母外，仍会被模型漏掉。
+
+<PrecisionScenarioFigure lang="zh" scenarioId="common-confusions" />
+
+## 零分母约定
+
+若模型完全没报警（`tp = 0`, `fp = 0`）：
+
+- 分母 `tp + fp = 0`
+- 内部返回 `null`
+- 文案渲染为 `不可用`（英文显示为 `not available`）
+
+<PrecisionScenarioFigure lang="zh" scenarioId="precision-column" />
+
+## 图谱连接
+
+<PrecisionScenarioFigure lang="zh" scenarioId="graph-strip" />
+
+## 练习
+
+1. 为什么准确率和精确率分母不同？
+2. 按 `e1 -> e3` 计算前两步精确率。
+3. `precision = null` 的场景里不应该显示哪个值？
+4. 哪类案例会进入精确率分母，哪类不会？

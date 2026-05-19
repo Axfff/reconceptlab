@@ -1,0 +1,201 @@
+---
+id: precision
+locale: en
+title: Precision
+summary: Measure how often positive predictions are actually correct.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - classification
+prerequisites:
+  - confusion-matrix
+next: []
+createdAt: 2026-05-18
+updatedAt: 2026-05-18
+---
+
+import PrecisionScenarioFigure from "../../../components/interactive/PrecisionScenarioFigure";
+import PrecisionColumnDemo from "../../../components/interactive/PrecisionColumnDemo";
+import {
+  buildPrecisionTrace,
+  precisionFromCounts,
+  precisionUnavailableText
+} from "../../../components/interactive/precisionTrace";
+import { confusionMatrixExamples, labelForCell, positiveLabel } from "../../../components/interactive/confusionMatrixTrace";
+
+## Hook problem: trust a spam alarm or not
+
+Your model scans 12 emails with fixed fixture subjects. You need to know whether an alarm `predicted = spam` is trustworthy.
+
+<PrecisionScenarioFigure lang="en" scenarioId="hook-funnel" />
+
+Accuracy says:
+
+$$
+\frac{TP + TN}{TP + FP + TN + FN}
+= \frac{3 + 4}{12}
+= \frac{7}{12}
+$$
+
+That gives `58.3%`, but it mixes two question types:
+
+- Did the model get the whole mail stream mostly correct?
+- Did the model's spam alarms stay correct?
+
+## First naive idea: keep using all examples
+
+If we stay with the global fraction above, those five predicted alarms sit in denominator along with all non-alarms.
+
+<PrecisionScenarioFigure lang="en" scenarioId="accuracy-vs-precision" />
+
+## Why this hurts
+
+`e3` and `e4` are both wrong, but they do not affect a trust metric in the same way:
+
+- `e3`: actual `not-spam`, predicted `spam` (`FP`) → hurts trust directly.
+- `e4`: actual `spam`, predicted `not-spam` (`FN`) → hurts recall, not spam-alarm trust.
+
+## Core invention: read only predicted positives
+
+For precision, set the denominator to the count of predicted positives:
+
+$$
+\text{Precision} = \frac{TP}{TP + FP}
+$$
+
+This gives the fraction of alarms that were right:
+
+$$
+\frac{3}{3 + 2} = \frac{3}{5} = 0.6
+$$
+
+## Interactive visual demo: predicted-positive trace
+
+Each step below processes only `e1`, `e3`, `e5`, `e9`, `e10` in fixture order:
+
+1,2,3,4,5 →
+`e1`, `e3`, `e5`, `e9`, `e10`
+
+<PrecisionColumnDemo client:load lang="en" />
+
+The static ledger below is still useful when scripts are unavailable.
+
+<table className="pnp-mini-table">
+  <caption>Precision trace over predicted alarms (no-JS fallback)</caption>
+  <thead>
+    <tr>
+      <th>Step</th>
+      <th>Email</th>
+      <th>Subject</th>
+      <th>Actual</th>
+      <th>Predicted</th>
+      <th>Cell</th>
+      <th>Trusted</th>
+      <th>All</th>
+      <th>Running value</th>
+    </tr>
+  </thead>
+  <tbody>
+    {buildPrecisionTrace(confusionMatrixExamples, positiveLabel).map((step) => {
+      const result = precisionFromCounts({ tp: step.trustedAlarms, fp: step.allAlarms - step.trustedAlarms });
+      const cell = labelForCell(step.cell, "en");
+      return (
+        <tr key={step.example.id}>
+          <th scope="row">{step.index + 1}</th>
+          <td>{step.example.id}</td>
+          <td>{step.example.subject.en}</td>
+          <td>{step.example.actual}</td>
+          <td>{step.example.prediction}</td>
+          <td>{cell.code}</td>
+          <td>{step.trustedAlarms}</td>
+          <td>{step.allAlarms}</td>
+          <td>{result.value === null ? precisionUnavailableText("en") : `${result.numerator}/${result.denominator} = ${Number(result.value.toFixed(3))}`}</td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+## Correctness intuition
+
+Each processed alarm is either `TP` or `FP`, so the denominator `TP + FP` exactly counts all alarm predictions.
+
+The non-alarm examples are outside the denominator:
+
+- `TN + FN` outside: `e2`, `e4`, `e6`, `e7`, `e8`, `e11`, `e12`
+- `FN` missed positives outside: `e4`, `e8`, `e12`
+
+At this fixture end:
+
+- `TP = 3`
+- `FP = 2`
+- `precision = 3 / 5 = 0.6`
+
+## Implementation sketch
+
+```ts
+interface Counts {
+  tp: number;
+  fp: number;
+}
+
+function precisionFromCounts(counts: Counts): { numerator: number; denominator: number; value: number | null } {
+  const denominator = counts.tp + counts.fp;
+  if (denominator === 0) {
+    return { numerator: counts.tp, denominator, value: null };
+  }
+  return { numerator: counts.tp, denominator, value: counts.tp / denominator };
+}
+```
+
+## Complexity
+
+If confusion-matrix counts already exist:
+
+- `O(1)` to compute precision from counts.
+- `O(n)` + `O(1)` extra space if you scan one fixture and count `tp`/`fp`.
+
+## Common confusions
+
+- Precision is **not** accuracy. Accuracy uses all 12 emails. Precision uses only 5 alarm predictions.
+- Precision is **not** recall. Recall asks about `FN` coverage, which is a different denominator.
+- High precision does not mean no missed spam. Precision can stay at `3/5` while `e4,e8,e12` are still missed.
+
+<PrecisionScenarioFigure lang="en" scenarioId="common-confusions" />
+
+## Zero-denominator convention
+
+When there are no `predicted = spam` outputs:
+
+- `tp = 0`
+- `fp = 0`
+- denominator `tp + fp = 0`
+- `precision = null` (internally)
+
+Rendered value should be:
+
+- English: not available
+- Chinese: 不可用
+
+<PrecisionScenarioFigure lang="en" scenarioId="precision-column" />
+
+## Graph connection
+
+<PrecisionScenarioFigure lang="en" scenarioId="graph-strip" />
+
+## Edges and edges only
+
+From this node:
+
+- `confusion-matrix -> precision` (`uses`)
+
+## Exercises
+
+1. Why does accuracy use all 12 emails but precision use only `TP + FP`?
+2. Compute the first two running precision values by hand from `e1` then `e3`.
+3. In a dataset with no positive predictions, what should precision render, and why?
+4. Which of `e3`, `e4`, and `e8` changes the precision denominator?

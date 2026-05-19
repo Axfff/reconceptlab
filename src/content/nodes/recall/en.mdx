@@ -1,0 +1,219 @@
+---
+id: recall
+locale: en
+title: Recall
+summary: Measure how many real positives were found by the model.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - classification
+prerequisites:
+  - confusion-matrix
+next: []
+createdAt: 2026-05-18
+updatedAt: 2026-05-18
+---
+
+import RecallScenarioFigure from "../../../components/interactive/RecallScenarioFigure";
+import RecallRowDemo from "../../../components/interactive/RecallRowDemo";
+import {
+  buildRecallTrace,
+  recallFromCounts,
+  recallUnavailableText
+} from "../../../components/interactive/recallTrace";
+import {
+  confusionMatrixExamples,
+  labelForCell,
+  positiveLabel
+} from "../../../components/interactive/confusionMatrixTrace";
+
+## Hook problem: did we catch enough real spam?
+
+Your model evaluated 12 emails. You care about one question:
+
+**Of the real positives, how many were caught?**
+
+<RecallScenarioFigure lang="en" scenarioId="hook-funnel" />
+
+## First naive idea: reuse accuracy
+
+If you still use global correctness:
+
+$$
+\frac{TP + TN}{TP + FP + TN + FN}
+= \frac{3 + 4}{12}
+= \frac{7}{12}
+$$
+
+This measures overall correctness. It says nothing about coverage of real spam.
+
+## Why it hurts: `FN` examples are invisible to that denominator
+
+`e4`, `e8`, and `e12` are all real spam but missed by the model (`FN`):
+
+- `e1`: caught spam (`TP`)
+- `e4`: missed spam (`FN`)
+- `e5`: caught spam (`TP`)
+- `e8`: missed spam (`FN`)
+- `e10`: caught spam (`TP`)
+- `e12`: missed spam (`FN`)
+
+So for recall, denominator is `TP + FN = 6`, not all 12.
+
+<RecallScenarioFigure lang="en" scenarioId="accuracy-vs-recall" />
+
+## Core invention: read the actual-positive row
+
+The matrix orientation is fixed:
+
+$$
+\text{actual rows},\ \text{predicted columns}
+$$
+
+Recall reads only one row:
+
+$$
+\text{recall} = \frac{TP}{TP + FN}
+$$
+
+For this fixture:
+
+$$
+\frac{TP}{TP + FN}
+= \frac{3}{3 + 3}
+= \frac{3}{6}
+= 0.5
+$$
+
+<RecallScenarioFigure lang="en" scenarioId="actual-positive-row" />
+<RecallScenarioFigure lang="en" scenarioId="recall-fraction" />
+
+## Interactive trace: actual-positive step-by-step
+
+The interactive demo now shows only `e1`, `e4`, `e5`, `e8`, `e10`, `e12` in fixture order, and one row of the running recall after each row.
+
+<RecallRowDemo client:load lang="en" />
+
+If JavaScript is unavailable, use this ledger:
+
+<table className="pnp-mini-table">
+  <caption>Recall trace over actual spam emails (no-JS fallback)</caption>
+  <thead>
+    <tr>
+      <th>Step</th>
+      <th>Email</th>
+      <th>Subject</th>
+      <th>Actual</th>
+      <th>Predicted</th>
+      <th>Cell</th>
+      <th>Caught positives</th>
+      <th>Actual positives seen</th>
+      <th>Running recall</th>
+    </tr>
+  </thead>
+  <tbody>
+    {buildRecallTrace(confusionMatrixExamples, positiveLabel).map((step) => {
+      const result = recallFromCounts({ tp: step.caughtPositives, fn: step.actualPositivesSeen - step.caughtPositives });
+      const cell = labelForCell(step.cell, "en");
+      return (
+        <tr key={step.example.id}>
+          <th scope="row">{step.index + 1}</th>
+          <td>{step.example.id}</td>
+          <td>{step.example.subject.en}</td>
+          <td>{step.example.actual}</td>
+          <td>{step.example.prediction}</td>
+          <td>{cell.code}</td>
+          <td>{step.caughtPositives}</td>
+          <td>{step.actualPositivesSeen}</td>
+          <td>{`${result.numerator}/${result.denominator} = ${result.value === null ? recallUnavailableText("en") : Number(result.value.toFixed(3))}`}</td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
+
+## Missed-spam pain (what recall protects)
+
+Recall stays honest because it measures missed real positives directly.
+
+<RecallScenarioFigure lang="en" scenarioId="missed-spam" />
+
+## Zero-denominator convention
+
+If there are no real positives in the evaluated set:
+
+- `TP = 0`
+- `FN = 0`
+- `TP + FN = 0`
+- internal value: `null`
+- rendered value: `not available`
+
+<RecallScenarioFigure lang="en" scenarioId="edge-case" />
+
+## Implementation sketch
+
+```ts
+interface RecallCounts {
+  tp: number;
+  fn: number;
+}
+
+function recallFromCounts(counts: RecallCounts) {
+  const denominator = counts.tp + counts.fn;
+  if (denominator === 0) {
+    return { numerator: counts.tp, denominator, value: null };
+  }
+  return { numerator: counts.tp, denominator, value: counts.tp / denominator };
+}
+```
+
+<RecallScenarioFigure lang="en" scenarioId="implementation" />
+
+## Correctness intuition
+
+Each actual-positive example is exactly one of:
+
+- `TP`: actual spam and predicted spam (`caught`)
+- `FN`: actual spam and predicted not-spam (`missed`)
+
+So `TP + FN` is exactly the set of real spam. It must equal 6 here.
+
+| Invariant | Value |
+|---|---:|
+| `TP + FN` from final counts | 6 |
+| Final `TP` | 3 |
+| Final `FN` | 3 |
+| Final recall | `3 / (3 + 3)` |
+
+## Complexity
+
+- If counts already exist: `O(1)` to compute recall from `{tp, fn}`.
+- If scanning examples directly: `O(n)` time and `O(1)` extra space.
+
+<RecallScenarioFigure lang="en" scenarioId="common-confusions" />
+
+## Graph connection
+
+Recall is built from the confusion-matrix actual-positive row and can be contrasted with precision.
+
+<RecallScenarioFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. Why is `7 / 12` not a recall score?
+2. What is the recall denominator in this fixture and why?
+3. Compute the running recall after `e8`.
+4. Explain what should render when denominator is `0`.
+5. Which examples are `FN`, and why do they affect recall?
+
+| Final reference |
+|---|
+| `TP + FN = 3 + 3 = 6`, final recall is `3 / 6 = 0.5`, which is 50%. |
+
+| Actual-spam set |
+|---|
+| `e1`, `e4`, `e5`, `e8`, `e10`, `e12` |
