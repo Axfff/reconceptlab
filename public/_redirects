@@ -1,0 +1,3 @@
+# Cloudflare Pages applies this before serving /index.html.
+# Keep localized routes canonical and send the bare domain to English.
+/ /en/ 302

@@ -3,8 +3,9 @@ import Layout from "../../components/Layout.astro";
 import NodeCard from "../../components/NodeCard.astro";
 import { localeCodes, type Locale } from "../../i18n/locales";
 import { t } from "../../i18n/ui";
-import { graphPath, roadmapPath } from "../../lib/routes";
+import { graphPath, nodePath, roadmapPath } from "../../lib/routes";
 import { getNodesByLocale } from "../../lib/content";
+import { absoluteUrl, getSiteBase, organizationJsonLd, websiteJsonLd } from "../../lib/seo";
 
 export function getStaticPaths() {
   return localeCodes.map((lang) => ({ params: { lang } }));
@@ -13,6 +14,7 @@ export function getStaticPaths() {
 const lang = Astro.params.lang as Locale;
 const nodes = await getNodesByLocale(lang);
 const featured = nodes.slice(0, 4);
+const siteBase = getSiteBase(Astro.site);
 
 const copy = {
   en: {
@@ -50,9 +52,35 @@ const copy = {
     roadmapText: "路线图让第一版保持聚焦，同时给算法、系统、理论和数据结构留下扩展空间。"
   }
 }[lang];
+
+const homeJsonLd = [
+  organizationJsonLd(siteBase),
+  websiteJsonLd(lang, siteBase),
+  {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: t(lang, "siteTitle"),
+    description: t(lang, "siteDescription"),
+    inLanguage: lang === "zh" ? "zh-Hans" : "en",
+    url: absoluteUrl(`/${lang}/`, siteBase),
+    mainEntity: featured.map((entry) => ({
+      "@type": "LearningResource",
+      name: entry.data.title,
+      description: entry.data.summary,
+      url: absoluteUrl(nodePath(lang, entry.data.id), siteBase)
+    }))
+  }
+];
 ---
 
-<Layout lang={lang} title={t(lang, "siteTitle")} description={t(lang, "siteDescription")}>
+<Layout
+  lang={lang}
+  title={t(lang, "siteTitle")}
+  description={t(lang, "siteDescription")}
+  pathname={`/${lang}/`}
+  availableLocales={localeCodes}
+  jsonLd={homeJsonLd}
+>
   <section class="home-hero rcl-graph-paper">
     <div class="hero-copy">
       <p class="section-kicker">{copy.kicker}</p>

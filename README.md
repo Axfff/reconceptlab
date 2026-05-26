@@ -22,6 +22,19 @@ npm run build
 npm run dev
 ```
 
+## Deploy On Cloudflare
+
+For Cloudflare Workers & Pages Git deployments, keep this as a static Astro site:
+
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Production branch: `main`, or whichever branch Cloudflare is configured to deploy
+- Environment variable: set `PUBLIC_SITE_URL` to the canonical production origin, for example `https://reconceptlab.com`
+
+The repository includes Cloudflare Pages static config in `public/_headers` and `public/_redirects`. Those files are copied into `dist` during the Astro build. `_redirects` sends the bare root `/` to `/en/`, and `_headers` adds crawl-friendly sitemap discovery, security headers, and long-lived caching for hashed Astro assets.
+
+This site does not need the Astro Cloudflare adapter unless it later adds server-side rendering, Pages Functions, or Worker code. With the current static architecture, Cloudflare can deploy the generated `dist` assets directly.
+
 ## Folder Structure
 
 ```text

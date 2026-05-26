@@ -5,6 +5,8 @@ import { graphEdges, graphNodes } from "../../data/graph";
 import { localeCodes, type Locale } from "../../i18n/locales";
 import { t } from "../../i18n/ui";
 import { getNodesByLocale } from "../../lib/content";
+import { absoluteUrl, breadcrumbJsonLd, getSiteBase, websiteJsonLd } from "../../lib/seo";
+import { graphPath } from "../../lib/routes";
 
 export function getStaticPaths() {
   return localeCodes.map((lang) => ({ params: { lang } }));
@@ -13,6 +15,7 @@ export function getStaticPaths() {
 const lang = Astro.params.lang as Locale;
 const entries = await getNodesByLocale(lang);
 const availableNodeIds = entries.map((entry) => entry.data.id);
+const siteBase = getSiteBase(Astro.site);
 
 const copy = {
   en: {
@@ -32,9 +35,38 @@ const copy = {
     draft: "草稿节点"
   }
 }[lang];
+
+const graphJsonLd = [
+  websiteJsonLd(lang, siteBase),
+  breadcrumbJsonLd([
+    { name: t(lang, "home"), url: absoluteUrl(`/${lang}/`, siteBase) },
+    { name: t(lang, "graph"), url: absoluteUrl(graphPath(lang), siteBase) }
+  ]),
+  {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: t(lang, "graph"),
+    description: copy.intro,
+    inLanguage: lang === "zh" ? "zh-Hans" : "en",
+    url: absoluteUrl(graphPath(lang), siteBase),
+    mainEntity: entries.map((entry) => ({
+      "@type": "LearningResource",
+      name: entry.data.title,
+      description: entry.data.summary,
+      url: absoluteUrl(`/${lang}/nodes/${entry.data.id}`, siteBase)
+    }))
+  }
+];
 ---
 
-<Layout lang={lang} title={t(lang, "graph")} description={t(lang, "siteDescription")}>
+<Layout
+  lang={lang}
+  title={t(lang, "graph")}
+  description={copy.intro}
+  pathname={graphPath(lang)}
+  availableLocales={localeCodes}
+  jsonLd={graphJsonLd}
+>
   <section class="graph-hero rcl-graph-paper">
     <p class="section-kicker">{copy.kicker}</p>
     <h1>{t(lang, "graph")}</h1>

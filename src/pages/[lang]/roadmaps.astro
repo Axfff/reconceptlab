@@ -2,13 +2,15 @@
 import Layout from "../../components/Layout.astro";
 import { localeCodes, type Locale } from "../../i18n/locales";
 import { t } from "../../i18n/ui";
-import { nodePath } from "../../lib/routes";
+import { nodePath, roadmapPath } from "../../lib/routes";
+import { absoluteUrl, breadcrumbJsonLd, getSiteBase, websiteJsonLd } from "../../lib/seo";
 
 export function getStaticPaths() {
   return localeCodes.map((lang) => ({ params: { lang } }));
 }
 
 const lang = Astro.params.lang as Locale;
+const siteBase = getSiteBase(Astro.site);
 
 const copy = {
   en: {
@@ -34,9 +36,38 @@ const copy = {
     ]
   }
 }[lang];
+
+const roadmapJsonLd = [
+  websiteJsonLd(lang, siteBase),
+  breadcrumbJsonLd([
+    { name: t(lang, "home"), url: absoluteUrl(`/${lang}/`, siteBase) },
+    { name: t(lang, "roadmaps"), url: absoluteUrl(roadmapPath(lang), siteBase) }
+  ]),
+  {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: copy.title,
+    description: copy.intro,
+    inLanguage: lang === "zh" ? "zh-Hans" : "en",
+    url: absoluteUrl(roadmapPath(lang), siteBase),
+    mainEntity: copy.paths.map(([title, description, firstNode]) => ({
+      "@type": "Course",
+      name: title,
+      description,
+      url: absoluteUrl(nodePath(lang, String(firstNode)), siteBase)
+    }))
+  }
+];
 ---
 
-<Layout lang={lang} title={copy.title} description={copy.intro}>
+<Layout
+  lang={lang}
+  title={copy.title}
+  description={copy.intro}
+  pathname={roadmapPath(lang)}
+  availableLocales={localeCodes}
+  jsonLd={roadmapJsonLd}
+>
   <section class="roadmap-hero rcl-graph-paper">
     <p class="section-kicker">{t(lang, "roadmaps")}</p>
     <h1>{copy.title}</h1>

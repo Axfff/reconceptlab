@@ -2,6 +2,7 @@
 import Header from "./Header.astro";
 import { locales, type Locale } from "../i18n/locales";
 import { t } from "../i18n/ui";
+import { absoluteUrl, getSiteBase, jsonLdScript, siteImagePath } from "../lib/seo";
 import "katex/dist/katex.min.css";
 
 type Props = {
@@ -10,6 +11,11 @@ type Props = {
   description?: string;
   pathname?: string;
   availableLocales?: Locale[];
+  canonicalPath?: string;
+  image?: string;
+  pageType?: "website" | "article";
+  robots?: string;
+  jsonLd?: unknown | unknown[];
 };
 
 const {
@@ -17,10 +23,21 @@ const {
   title = t(lang, "siteTitle"),
   description = t(lang, "siteDescription"),
   pathname = Astro.url.pathname,
-  availableLocales
+  availableLocales,
+  canonicalPath = pathname,
+  image = siteImagePath,
+  pageType = "website",
+  robots = "index, follow",
+  jsonLd = []
 } = Astro.props;
 
 const pageTitle = title === t(lang, "siteTitle") ? title : `${title} | ${t(lang, "siteTitle")}`;
+const siteBase = getSiteBase(Astro.site);
+const canonicalUrl = absoluteUrl(canonicalPath, siteBase);
+const imageUrl = absoluteUrl(image, siteBase);
+const structuredData = Array.isArray(jsonLd) ? jsonLd : [jsonLd];
+const alternateLocales = availableLocales ?? [];
+const alternateHref = (locale: Locale) => absoluteUrl(pathname.replace(`/${lang}`, `/${locale}`), siteBase);
 ---
 
 <!doctype html>
@@ -29,9 +46,22 @@ const pageTitle = title === t(lang, "siteTitle") ? title : `${title} | ${t(lang,
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
+    <meta name="robots" content={robots} />
     <meta name="theme-color" content="#f8fafc" />
+    <meta property="og:site_name" content={t(lang, "siteTitle")} />
+    <meta property="og:type" content={pageType} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={imageUrl} />
+    <meta property="og:locale" content={locales[lang].htmlLang} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={imageUrl} />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" href="/icon-192.png" type="image/png" />
+    <link rel="canonical" href={canonicalUrl} />
     <title>{pageTitle}</title>
     <script is:inline>
       (() => {
@@ -40,9 +70,11 @@ const pageTitle = title === t(lang, "siteTitle") ? title : `${title} | ${t(lang,
         document.documentElement.dataset.theme = stored ?? (prefersDark ? "dark" : "light");
       })();
     </script>
-    {availableLocales?.map((locale) => (
-      <link rel="alternate" hreflang={locales[locale].htmlLang} href={new URL(pathname.replace(`/${lang}`, `/${locale}`), Astro.url).toString()} />
+    {alternateLocales.map((locale) => (
+      <link rel="alternate" hreflang={locales[locale].htmlLang} href={alternateHref(locale)} />
     ))}
+    {alternateLocales.includes("en") ? <link rel="alternate" hreflang="x-default" href={alternateHref("en")} /> : null}
+    {structuredData.map((item) => <script is:inline type="application/ld+json" set:html={jsonLdScript(item)} />)}
   </head>
   <body>
     <Header lang={lang} pathname={pathname} availableLocales={availableLocales} />
