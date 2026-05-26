@@ -1,0 +1,151 @@
+---
+id: rbf-kernel
+locale: zh
+title: RBF 核
+summary: 把距离转成局部相似度，让近点比远点重要得多。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - kernels
+  - similarity
+prerequisites:
+  - kernel
+next:
+  - sigmoid-kernel
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import KernelFunctionFigure from "../../../components/interactive/KernelFunctionFigure";
+import KernelSimilarityLab from "../../../components/interactive/KernelSimilarityLab";
+
+## 引子问题：局部近邻应该更重要
+
+想象我们要预测一套新房子的价格走势，而且所有特征都已经归一化到可比较的尺度。这里先只用两个特征讲故事：归一化面积和归一化社区质量。
+
+新房源是 `A=(1,1)`。一个近的历史样本是 `B=(2,1)`。一个远的历史样本是 `E=(4,4)`。如果任务需要局部预测，`B` 应该比 `E` 更影响 `A`，因为 `B` 在特征空间里离 `A` 更近。
+
+<KernelFunctionFigure lang="zh" scenarioId="rbf-dot-product-pain" />
+
+## 朴素想法：继续使用点积
+
+核函数（kernel function）常常像是在走“内积捷径”，所以第一反应可能是继续用点积 $x^Tz$。
+
+但这不适合这个局部邻域问题。从 `A=(1,1)` 出发，点积给 `A -> B` 的分数是 `3`，却给 `A -> E` 的分数是 `8`。远处同方向的房源赢了，因为点积会奖励幅度和相对于原点的方向对齐。它问的不是：“哪套房子离 A 更近？”
+
+| 从 A 出发的配对 | 点积 $x^Tz$ | 距离平方 $\lVert x-z\rVert^2$ | $\gamma=0.5$ 时的 RBF |
+| --- | ---: | ---: | ---: |
+| `A -> B` | `3` | `1` | `0.607` |
+| `A -> E` | `8` | `18` | `0.000123` |
+
+这张表把问题暴露出来：点积把远点排得更高，而距离告诉我们局部样本其实近得多。
+
+## 核心发明：指数距离衰减
+
+最小的修补办法，是不再比较“从原点看方向是否一致”，而是比较平方欧几里得距离。距离为 `0` 应该表示最大相似度。距离越大，相似度应该平滑地衰减到接近 `0`。
+
+RBF 核（radial basis function kernel）正是这样做的：先算距离平方，乘上负的衰减率，再经过指数衰减。
+
+<KernelFunctionFigure lang="zh" scenarioId="rbf-decay-curve" />
+
+## 形式化定义
+
+$$
+K(x,z)=\exp(-\gamma \lVert x-z\rVert^2)
+$$
+
+这里 $x$ 和 $z$ 是两个输入向量。$\lVert x-z\rVert^2$ 是它们的平方欧几里得距离。参数 $\gamma$ 是正的衰减率。函数 $\exp$ 会把指数 `0` 映射到 `1`；负指数会得到 `0` 和 `1` 之间的值。
+
+对于 $\gamma>0$ 和有限实数输入，RBF 的取值在 $(0,1]$。自匹配的距离是 `0`，所以 $K(x,x)=\exp(0)=1$。任何非零距离都会产生负指数，因此结果小于 `1`，但仍然为正。
+
+常见的带宽写法是 $\gamma = 1 / (2\sigma^2)$。更大的 $\gamma$ 表示更小的有效邻域。更大的 $\sigma$ 会让 $\gamma$ 变小，所以邻域变宽。
+
+<KernelFunctionFigure lang="zh" scenarioId="rbf-neighborhood" />
+
+## 交互比较
+
+现在在同一组共享点上比较 RBF、线性核、多项式核和 Sigmoid 核。先换锚点，再只调整 RBF 的 gamma 选择器。非 RBF 核保持固定参数，这样带宽影响不会和别的参数混在一起。
+
+<KernelSimilarityLab client:load lang="zh" initialKernel="rbf" />
+
+从锚点 `A` 出发，RBF 的模式是：
+
+| Gamma | `A -> B`，距离平方 `1` | `A -> C`，距离平方 `5` | `A -> D`，距离平方 `10` |
+| ---: | ---: | ---: | ---: |
+| `0.1` | `0.905` | `0.607` | `0.368` |
+| `0.5` | `0.607` | `0.082` | `0.007` |
+| `1.0` | `0.368` | `0.007` | `0.000045` |
+
+增大 `gamma` 不会移动这些点。它只会让相同距离下的相似度衰减得更快。
+
+## 实现草图
+
+输入 `x` 和 `z` 必须是等长的数值向量。令 `d` 表示这个共同的特征数。一个直接的 TypeScript 实现是：
+
+```ts
+function rbfKernel(x: number[], z: number[], gamma: number) {
+  if (x.length !== z.length) {
+    throw new Error("RBF kernel expects equal-length vectors.");
+  }
+
+  const d = x.length;
+  let squaredDistance = 0;
+
+  for (let i = 0; i < d; i += 1) {
+    squaredDistance += (x[i] - z[i]) ** 2;
+  }
+
+  return Math.exp(-gamma * squaredDistance);
+}
+```
+
+对于 `A=(1,1)` 和 `B=(2,1)`，计算过程小到可以手算：
+
+| 特征下标 | 来自 A 的 `x_i` | 来自 B 的 `z_i` | `(x_i-z_i)^2` | 运行和 |
+| ---: | ---: | ---: | ---: | ---: |
+| `0` | `1` | `2` | `1` | `1` |
+| `1` | `1` | `1` | `0` | `1` |
+
+所以 $\lVert A-B\rVert^2=1$。当 $\gamma=0.5$ 时，$K(A,B)=\exp(-0.5)\approx0.607$。
+
+## 行为、不变量和复杂度
+
+关键不变量是局部性：当 gamma 为正时，平方距离变大不会让 RBF 相似度变大。
+
+| 情况 | 会发生什么 | 为什么重要 |
+| --- | --- | --- |
+| 自匹配 | $K(x,x)=1$ | 一个点和自己最相似。 |
+| 近点 | 数值接近 `1` | 局部样本保留影响力。 |
+| 远点 | 数值衰减到接近 `0` | 远处样本几乎不相关。 |
+| Gamma 等于 `0` | 每一对都映射到 `1` | 这不是局部的：距离不再起作用。 |
+| Gamma 小于 `0` | 更远的点可能超过 `1` | 这不是本节点讨论的 RBF 设置。 |
+| 小的正 gamma | 同样距离衰减更慢 | 邻域更宽。 |
+| 大的正 gamma | 同样距离衰减更快 | 邻域更小。 |
+
+如果每个向量有 `d` 个数值特征，一次 RBF 计算需要 $O(d)$：循环只读每个坐标一次。把一个查询点和 `n` 个存储点逐个比较，需要 $O(nd)$。
+
+## 常见混淆
+
+| 误解 | 修正 |
+| --- | --- |
+| “RBF 是角度相似度。” | RBF 是局部距离相似度。同方向还不够。 |
+| “更大的 gamma 总是更好。” | 更大的 gamma 可能让邻域过小，过度局部化。 |
+| “更小的 gamma 总是更平滑、更安全。” | 更小的 gamma 可能让太多点看起来都差不多。 |
+| “带宽 sigma 和 gamma 同方向变化。” | 在 $\gamma = 1 / (2\sigma^2)$ 下，更大的 $\gamma$ 表示更小的 $\sigma$ 和更小的邻域。 |
+| “特征缩放可有可无。” | 一个大尺度特征会主导距离平方。先归一化或缩放有意义的特征。 |
+| “现在必须理解无限维特征映射证明。” | RBF 可以这样描述，但本节点只需要距离衰减行为。 |
+
+## 图谱连接与练习
+
+RBF 位于一般 [核函数](/zh/nodes/kernel/) 之后，因为它是一种具名核函数。它和 [线性核](/zh/nodes/linear-kernel/) 形成对比：线性相似度奖励相对于原点的方向对齐，而 RBF 奖励局部接近。它也和 [多项式核](/zh/nodes/polynomial-kernel/) 形成对比：多项式核加入有限次数的交互，而 RBF 表现得像更丰富的局部邻域规则。下一个相邻的具名核是 [Sigmoid 核](/zh/nodes/sigmoid-kernel/)，它又回到压缩后的点积，而且有效性条件更微妙。
+
+<KernelFunctionFigure lang="zh" scenarioId="graph-strip" />
+
+预测题：
+
+1. 从锚点 `A` 出发，除了 `A` 自己之外，共享点中谁的 RBF 分数最高？
+2. 当 `gamma` 从 `0.1` 增大到 `1.0` 时，`A -> C` 会发生什么？
+3. 为什么点积会把 `E=(4,4)` 排在 `B=(2,1)` 前面，即使 `B` 才是局部近邻？

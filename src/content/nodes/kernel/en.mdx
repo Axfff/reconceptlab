@@ -1,0 +1,91 @@
+---
+id: kernel
+locale: en
+title: Kernel Function
+summary: Compare two inputs as if they were mapped into a feature space, often without constructing that space explicitly.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - kernels
+  - similarity
+prerequisites:
+  - feature-map
+next:
+  - linear-kernel
+  - polynomial-kernel
+  - rbf-kernel
+  - sigmoid-kernel
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import KernelFunctionFigure from "../../../components/interactive/KernelFunctionFigure";
+import KernelSimilarityLab from "../../../components/interactive/KernelSimilarityLab";
+
+## Hook problem: mapping first can be expensive
+
+A feature map says, "rewrite every input, then compare the rewritten vectors." That is clear, but it can be wasteful when the rewritten vector is huge.
+
+A **kernel function** asks for the comparison directly.
+
+<KernelFunctionFigure lang="en" scenarioId="kernel-shortcut" />
+
+## First naive idea: explicitly build every feature
+
+The direct route is:
+
+1. compute `phi(x)`;
+2. compute `phi(z)`;
+3. take their inner product.
+
+This is fine for a small quadratic map. It is painful when the feature space has thousands, millions, or infinitely many coordinates.
+
+## Core invention: compare through a shortcut
+
+A kernel function has the form:
+
+$$
+K(x,z)=\langle \phi(x), \phi(z)\rangle
+$$
+
+The inputs `x` and `z` stay in the original space. The function returns the inner product they would have after the feature map `phi`.
+
+## Interactive similarity lab
+
+<KernelSimilarityLab client:load lang="en" initialKernel="rbf" />
+
+Static no-JS fallback:
+
+<KernelFunctionFigure lang="en" scenarioId="rbf-neighborhood" />
+
+## Valid-kernel boundary
+
+Not every similarity score is a valid kernel for kernel methods. A valid kernel must behave like an inner product in some feature space, which means its Gram matrix should be positive semidefinite for any finite sample.
+
+For this node, keep the practical rule: named kernels are useful because they come with known geometry and known conditions. The proof machinery belongs in a later node.
+
+## Implementation sketch
+
+```ts
+function rbfKernel(x: Point, z: Point, gamma: number) {
+  const squaredDistance = (x.a - z.a) ** 2 + (x.b - z.b) ** 2;
+  return Math.exp(-gamma * squaredDistance);
+}
+```
+
+## Common confusions
+
+- A kernel is a function of two inputs, not a new coordinate vector.
+- Kernel value is similarity in a chosen geometry, not universal semantic similarity.
+- Some kernels have parameters; changing them changes the geometry.
+
+<KernelFunctionFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. What does `K(x,z)` return?
+2. Why might we avoid constructing `phi(x)` explicitly?
+3. Why is the sigmoid kernel treated more cautiously than RBF?

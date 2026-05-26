@@ -1,0 +1,154 @@
+---
+id: dfa
+locale: en
+title: Deterministic Finite Automata
+summary: Recognize simple string patterns with a finite set of states and one deterministic transition per input symbol.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: concept
+tags:
+  - theory-of-computing
+  - automata
+  - regular-languages
+prerequisites: []
+next: []
+createdAt: 2026-05-25
+updatedAt: 2026-05-25
+---
+
+import DfaScenarioFigure from "../../../components/interactive/DfaScenarioFigure";
+import DfaSimulator from "../../../components/interactive/DfaSimulator";
+
+## Hook problem
+
+Imagine a signup form that accepts a deliberately tiny email-like pattern: one or more local characters, one `@`, one or more domain characters, one `.`, then one or more suffix characters.
+
+For this teaching model, letters and digits are `char`, `@` is `at`, `.` is `dot`, and everything else is `other`. Dots are banned in the local part. This is not real RFC email validation; it is a small language for learning finite memory.
+
+<DfaScenarioFigure lang="en" scenarioId="hook-categories" />
+
+## First naive idea
+
+The first scan might use flags: `seenAt`, `seenDot`, `hasLocal`, `hasDomain`, and `hasSuffix`. That can be made correct, and it is a fair starting point.
+
+The pain is that correctness becomes hidden inside combinations. `hasLocal && seenAt && !hasDomain` means "the next useful thing must be a domain character." `hasLocal && seenAt && hasDomain && seenDot && hasSuffix` means "accepting if the input ends now." The flags are not wrong; their meanings are just unnamed.
+
+<DfaScenarioFigure lang="en" scenarioId="flag-combinations" />
+
+## Where it breaks
+
+Small mistakes expose the hidden cases. `ana@.ai` has a local part and an `@`, but it reads `dot` before any domain character. `ana@@cs.ai` reads a second `@`. `ana@cs.` reaches the dot but never gets a suffix character.
+
+A deterministic finite automaton makes each fragile case explicit: after `ana@`, the machine is in `need-domain`; on `dot`, the only next state is `dead`.
+
+<DfaScenarioFigure lang="en" scenarioId="missing-domain-before-dot" />
+
+## The core invention
+
+A deterministic finite automaton, or DFA, replaces scattered flags with one current state. A state is a named summary of the prefix read so far: what facts matter, and what must still happen next.
+
+For the toy validator, `need-local` means "no local character yet." `in-domain` means "we have a local part, exactly one `@`, and at least one domain character, so the dot is now allowed." `dead` means a fatal mistake has happened and this input cannot be repaired.
+
+<DfaScenarioFigure lang="en" scenarioId="state-meaning-cards" />
+
+## Visual model
+
+The whole machine is a table: every state has exactly one next state for every input symbol category. That "exactly one" is the deterministic part.
+
+For example, $\delta(\text{in-local}, @) = \text{need-domain}$, while $\delta(\text{in-local}, \text{dot}) = \text{dead}$. The transition table is total: no case is left to an implicit default.
+
+<DfaScenarioFigure lang="en" scenarioId="transition-table" />
+
+## Interactive visual demo
+
+Try stepping through `ana@cs.ai`, `ana@.ai`, and `ana@cs.ai.`. Watch the text status as well as the colors: being in `in-suffix` is only enough when the input is exhausted.
+
+<DfaSimulator client:load lang="en" />
+
+## Formal version
+
+After the trace intuition is in place, the mathematical object is compact:
+
+$$
+M = (Q, \Sigma, \delta, q_0, F)
+$$
+
+Here `Q` is the finite set of states, `Σ` is the finite input alphabet, `δ` is the transition function, `q0` is the start state, and `F` is the set of accepting states.
+
+In this node, `Q` is the seven named states, `Σ = { char, at, dot, other }`, `q0 = need-local`, and `F = { in-suffix }`. The function `δ` is exactly the transition table above.
+
+<DfaScenarioFigure lang="en" scenarioId="five-tuple-callout" />
+
+## Implementation sketch
+
+The implementation mirrors the visible trace: classify one character, look up one table cell, replace the current state, and check acceptance only after the loop.
+
+```ts
+type DfaSymbol = "char" | "at" | "dot" | "other";
+type DfaState =
+  | "need-local"
+  | "in-local"
+  | "need-domain"
+  | "in-domain"
+  | "need-suffix"
+  | "in-suffix"
+  | "dead";
+
+function classify(input: string): DfaSymbol {
+  if (/^[A-Za-z0-9]$/.test(input)) return "char";
+  if (input === "@") return "at";
+  if (input === ".") return "dot";
+  return "other";
+}
+
+function accepts(input: string) {
+  let state: DfaState = "need-local";
+  for (const char of input) {
+    const symbol = classify(char);
+    state = transitionTable[state][symbol];
+  }
+  return state === "in-suffix";
+}
+```
+
+<DfaScenarioFigure lang="en" scenarioId="implementation-map" />
+
+## Prefix invariant
+
+After each prefix, the current state summarizes everything the rest of the computation needs to know. It does not remember the literal string `ana@cs`; it remembers the relevant phase: local part is done, `@` is done, domain has started, dot has not happened yet.
+
+That is the core invariant: for any two prefixes that land in the same state, every possible remaining suffix will lead to the same accept/reject answer.
+
+<DfaScenarioFigure lang="en" scenarioId="prefix-ledger" />
+
+## Complexity
+
+For input length `n`, the DFA performs one transition per character, so the running time is $O(n)$. The transition table has $|Q||\Sigma|$ entries; here that is `7 * 4`. The working memory is $O(1)$ beyond the input because the machine stores only the current state.
+
+<DfaScenarioFigure lang="en" scenarioId="transition-cost" />
+
+## Common confusions
+
+Acceptance is final-state based. During `ana@cs.ai.`, the prefix `ana@cs.ai` reaches `in-suffix`, which is accepting at that moment. But the input still has one more `.`. The machine must read it, and from `in-suffix` a `dot` moves to `dead`, so the whole string is rejected.
+
+<DfaScenarioFigure lang="en" scenarioId="accept-only-at-end" />
+
+The dead state is not a punishment; it is a memory shortcut. Once a fatal mistake has happened, no remaining input can make this toy pattern valid, so every symbol loops back to `dead`.
+
+<DfaScenarioFigure lang="en" scenarioId="dead-state-loop" />
+
+## Connections in the graph
+
+Graph basics and DFA diagrams both use circles and arrows, but they model different things. A graph edge can be any relationship among objects. A DFA arrow is a labeled transition between memory states while reading input.
+
+Future nodes can build from here toward designing DFAs, regular languages, NFAs, and pumping-lemma limits. This page stays bounded to deterministic finite memory and trace-by-input acceptance.
+
+## Exercises
+
+1. Predict the final state for `a@b.c` before checking the trace.
+2. Why does `ana.@cs.ai` enter `dead` before it ever sees `@`?
+3. Which table entry rejects `ana@cs!`?
+4. What would need to change if local-part dots were allowed?
+
+<DfaScenarioFigure lang="en" scenarioId="prediction-prompts" />

@@ -1,0 +1,77 @@
+---
+id: isomap
+locale: zh
+title: Isomap
+summary: 保留邻居图上的行走距离，让弯曲流形能展开成低维地图。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - manifold-learning
+prerequisites:
+  - mds
+next:
+  - sne
+  - umap
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import DimensionalityReductionLab from "../../../components/interactive/DimensionalityReductionLab";
+
+## 钩子问题：直线可能穿过折叠
+
+想象点落在一张卷曲的纸面上。两个点可能隔空很近，但如果必须沿纸面走，其实很远。
+
+原始 MDS 使用直线距离，所以可能把错误的近邻压在一起。**Isomap** 用邻居图上的行走距离来修补这个问题。
+
+<DimensionalityReductionFigure lang="zh" scenarioId="isomap-geodesic" />
+
+## 第一个朴素想法：直接对欧氏距离做 MDS
+
+如果结构本来就是平的，这样可行。结构弯曲时就会痛苦，因为欧氏距离会穿过空白空间抄近路。
+
+## 核心发明：先局部图，再布局
+
+Isomap 有三步：
+
+1. 把每个点连接到附近邻居；
+2. 计算图最短路距离，记作 `$D_{geo}(i,j)$`；
+3. 对测地距离表做 MDS。
+
+$$
+Y = MDS(D_{geo})
+$$
+
+邻居图背后的赌注是：局部距离可信，长距离应该由一段段局部行走拼出来。
+
+## 追踪实验室
+
+<DimensionalityReductionLab client:load lang="zh" initialMethod="isomap" />
+
+## 实现草图
+
+```ts
+build a k-nearest-neighbor graph;
+weight each edge by local distance;
+run all-pairs shortest paths on the graph;
+apply MDS to the graph-distance matrix;
+```
+
+## 常见混淆
+
+- Isomap 对邻居参数很敏感。
+- 邻居图不连通时，最短路距离表会坏掉。
+- 它保留的是流形距离，不是任意类别分离。
+
+<DimensionalityReductionFigure lang="zh" scenarioId="graph-strip" />
+
+## 练习
+
+1. Isomap 为什么不信任长直线距离？
+2. 如果邻居图不连通，会发生什么？
+3. Isomap 的哪一步继承自 MDS？

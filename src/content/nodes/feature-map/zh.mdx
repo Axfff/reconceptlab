@@ -1,0 +1,87 @@
+---
+id: feature-map
+locale: zh
+title: 特征映射
+summary: 把原始输入改写成表示坐标，让简单比较能看见你关心的模式。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - kernels
+  - representation
+prerequisites: []
+next:
+  - kernel
+  - linear-kernel
+  - polynomial-kernel
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import KernelFunctionFigure from "../../../components/interactive/KernelFunctionFigure";
+
+## Hook problem：原始坐标可能藏住模式
+
+假设模型只能看到两个坐标 `x1` 和 `x2`。如果真正有用的模式来自平方项或交互项，那么在原空间里做直线式比较可能看不见它。
+
+第一个修补还不是核函数。它是**特征映射（feature map）**：把每个输入改写到另一组坐标中的规则。
+
+<KernelFunctionFigure lang="zh" scenarioId="feature-map-lift" />
+
+## First naive idea：保持输入不变
+
+最简单的特征映射是恒等映射：
+
+$$
+\phi(x)=x
+$$
+
+当原始特征已经暴露结构时，它很好用。但如果“相似”来自相似的乘积、相似的平方，或靠近一条弯曲边界，原坐标就会变得吃力。
+
+## Core invention：选择表示坐标
+
+特征映射是一个函数：
+
+$$
+\phi: X \to F
+$$
+
+它把原空间 `X` 中的输入送到特征空间（feature space）`F`。对二维点，一个二次映射可以是：
+
+$$
+\phi(x_1,x_2)=(x_1^2,\sqrt{2}x_1x_2,x_2^2)
+$$
+
+这些新坐标不是魔法。它们只是我们决定要测量的东西：两个平方项和一个交互项。
+
+## Implementation sketch
+
+```ts
+function quadraticFeatureMap(point: { x: number; y: number }) {
+  return [point.x ** 2, Math.SQRT2 * point.x * point.y, point.y ** 2];
+}
+```
+
+同一个映射必须用于每个点。比较 `A` 和 `B` 时，二者都要先经过 `phi`。
+
+## Why kernels appear next
+
+当映射后的向量很小时，特征映射很容易直接理解。但有些有用映射非常大；RBF 核甚至表现得像来自无限维特征空间。
+
+<KernelFunctionFigure lang="zh" scenarioId="graph-strip" />
+
+下一个想法是一条捷径：不一定真的构造 `phi(x)`，也能直接算出映射后的内积。
+
+## Common confusions
+
+- 特征映射是表示规则；核函数（kernel）是成对比较的捷径。
+- 坐标更多不代表一定更好。映射要服务于任务。
+- 如果简单几何已经可用，原始输入本身就是一个有效的特征映射。
+
+## Exercises
+
+1. `x1 x2` 这一项创造了什么新坐标？
+2. 为什么每个点都必须使用同一个特征映射？
+3. 什么时候恒等映射就足够？

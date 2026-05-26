@@ -1,0 +1,77 @@
+---
+id: qda
+locale: en
+title: Quadratic Discriminant Analysis
+summary: Let each class keep its own covariance shape, producing curved supervised decision boundaries.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - classification
+prerequisites:
+  - lda
+next:
+  - sne
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import DimensionalityReductionLab from "../../../components/interactive/DimensionalityReductionLab";
+
+## Hook problem: one shared class shape is too stiff
+
+LDA assumes classes share one covariance shape. That is a useful simplification, but it can fail when one class is stretched, another is round, and the boundary needs to bend.
+
+Quadratic Discriminant Analysis, or **QDA**, repairs the shared-shape assumption.
+
+<DimensionalityReductionFigure lang="en" scenarioId="lda-qda-boundary" />
+
+## Important boundary: QDA is not a standard projection method
+
+QDA is mainly a supervised classifier. It appears in this dimensionality-reduction cluster because it is the natural contrast after LDA: instead of one linear discriminant geometry, it models one covariance matrix per class and gets a quadratic decision boundary.
+
+## Core invention: separate covariance per class
+
+For each class `c`, QDA estimates its own mean and covariance. A class score has the form:
+
+$$
+\log p(x\mid c)+\log p(c)
+$$
+
+The likelihood term uses the class-specific covariance matrix `Sigma_c`. When those covariance matrices differ, equal-score curves are quadratic.
+
+## Trace lab
+
+<DimensionalityReductionLab client:load lang="en" initialMethod="qda" />
+
+## Implementation sketch
+
+```ts
+for each class:
+  estimate mean_c and covariance_c;
+for a new point:
+  score each class with its Gaussian log likelihood plus log prior;
+  choose the largest score;
+```
+
+## Correctness intuition and cost
+
+QDA is more flexible than LDA because each class can have its own oval shape. That flexibility costs more parameters, so it needs more data and more careful regularization when features are many.
+
+## Common confusions
+
+- QDA does not produce a single low-dimensional embedding like PCA or t-SNE.
+- QDA is supervised; labels are required.
+- Curved boundaries can overfit when each class has too few examples.
+
+<DimensionalityReductionFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. What assumption does QDA relax from LDA?
+2. Why can QDA overfit more easily than LDA?
+3. Why should QDA not be described as a general-purpose visualization algorithm?

@@ -1,0 +1,76 @@
+---
+id: polynomial-kernel
+locale: en
+title: Polynomial Kernel
+summary: Add powers and feature interactions through a dot-product shortcut instead of manually expanding every term.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - kernels
+  - similarity
+prerequisites:
+  - feature-map
+  - kernel
+  - linear-kernel
+next:
+  - rbf-kernel
+  - sigmoid-kernel
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import KernelFunctionFigure from "../../../components/interactive/KernelFunctionFigure";
+import KernelSimilarityLab from "../../../components/interactive/KernelSimilarityLab";
+
+## Hook problem: interactions matter
+
+The raw coordinate `x1` and the raw coordinate `x2` might each be weak, while their product `x1 x2` is useful. Manually adding every square, cube, and interaction quickly becomes tedious.
+
+The **polynomial kernel** packages those interactions into one formula.
+
+<KernelFunctionFigure lang="en" scenarioId="polynomial-curves" />
+
+## First naive idea: expand the feature vector by hand
+
+For degree 2, a map can include `x1^2`, `x1 x2`, and `x2^2`. For higher degrees and more dimensions, the number of terms grows quickly.
+
+The kernel shortcut keeps the effect of those terms without forcing the page or program to list all of them.
+
+## Formal version
+
+$$
+K(x,z)=(\gamma x^Tz+c)^d
+$$
+
+Here `d` is the degree, `gamma` scales the dot product, and `c` shifts it before the power. Degree 1 behaves like a scaled linear kernel. Higher degrees add higher-order interactions.
+
+## Interactive comparison
+
+<KernelSimilarityLab client:load lang="en" initialKernel="polynomial" />
+
+## Implementation sketch
+
+```ts
+function polynomialKernel(dot: number, gamma = 0.5, c = 1, degree = 2) {
+  return (gamma * dot + c) ** degree;
+}
+```
+
+## Common confusions
+
+- Polynomial kernels are not automatically better than linear kernels.
+- Higher degree can create flexible boundaries, but it can also overfit or produce very large values.
+- The parameters are part of the geometry; changing them changes the similarity scale.
+
+## Connections
+
+The polynomial kernel generalizes the linear kernel by adding interaction features. It contrasts with the RBF kernel, which measures closeness by distance rather than powers of dot products.
+
+## Exercises
+
+1. What does the degree `d` control?
+2. Why is manually expanding polynomial features painful?
+3. What happens when `d=1`?

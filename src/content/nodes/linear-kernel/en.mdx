@@ -1,0 +1,76 @@
+---
+id: linear-kernel
+locale: en
+title: Linear Kernel
+summary: Use the original dot product as the simplest kernel baseline when the raw feature geometry is already useful.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - kernels
+  - similarity
+prerequisites:
+  - kernel
+next:
+  - polynomial-kernel
+  - rbf-kernel
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import KernelFunctionFigure from "../../../components/interactive/KernelFunctionFigure";
+import KernelSimilarityLab from "../../../components/interactive/KernelSimilarityLab";
+
+## Hook problem: start with the no-lift baseline
+
+Before adding curved boundaries or local neighborhoods, ask whether the original coordinates already work.
+
+The **linear kernel** is the kernel that refuses to invent new features.
+
+<KernelFunctionFigure lang="en" scenarioId="linear-plane" />
+
+## First naive idea: dot products are enough
+
+If two vectors point in similar directions and have useful magnitudes, the dot product is a reasonable similarity score.
+
+The pain appears when raw alignment is not the pattern: XOR-like interactions, rings, and local islands need something beyond a straight linear geometry.
+
+## Formal version
+
+$$
+K(x,z)=x^Tz
+$$
+
+For `d` input features, computing this value costs `O(d)` time. The feature map is the identity map, so `phi(x)=x`.
+
+## Interactive comparison
+
+<KernelSimilarityLab client:load lang="en" initialKernel="linear" />
+
+## Implementation sketch
+
+```ts
+function linearKernel(x: number[], z: number[]) {
+  return x.reduce((sum, value, index) => sum + value * z[index], 0);
+}
+```
+
+## Common confusions
+
+- Linear kernel does not mean the data is easy; it means the model compares original features linearly.
+- A linear kernel can still be strong with good engineered features.
+- Adding a polynomial or RBF kernel changes the geometry, not just the formula name.
+
+## Connections
+
+<KernelFunctionFigure lang="en" scenarioId="graph-strip" />
+
+The polynomial kernel starts from this same dot product and raises an affine version of it to a degree. RBF leaves dot-product alignment and measures distance decay instead.
+
+## Exercises
+
+1. What is the feature map for the linear kernel?
+2. Why is `O(d)` the direct computation cost?
+3. Name one pattern that a linear kernel might struggle with.

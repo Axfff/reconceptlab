@@ -1,0 +1,190 @@
+---
+id: pca
+locale: en
+title: Principal Component Analysis
+summary: Compress a data table by rotating centered data toward the directions where it varies most.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - linear-algebra
+prerequisites:
+  - feature-map
+next:
+  - mds
+  - lda
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import PcaCenteringFigure from "../../../components/interactive/PcaCenteringFigure";
+import PcaCostFigure from "../../../components/interactive/PcaCostFigure";
+import PcaMisconceptionCards from "../../../components/interactive/PcaMisconceptionCards";
+import PcaProjectionEquationFigure from "../../../components/interactive/PcaProjectionEquationFigure";
+import PcaReconstructionToggle from "../../../components/interactive/PcaReconstructionToggle";
+import PcaSupportFigure from "../../../components/interactive/PcaSupportFigure";
+import PcaTraceLab from "../../../components/interactive/PcaTraceLab";
+import PcaVarianceSweep from "../../../components/interactive/PcaVarianceSweep";
+
+## The problem: a table that is wider than its pattern
+
+Imagine a tiny table of body measurements. `height` and `arm span` are two different columns, but in this fixture they mostly rise together. The table has two numbers per row, while the visible pattern is close to one tilted direction.
+
+That is the pain PCA repairs: keep the important movement without keeping every original column.
+
+<PcaSupportFigure lang="en" scenarioId="correlated-table" />
+
+## First naive idea: drop one raw column
+
+A tempting compression rule is "keep the column with the larger spread" or "drop the column that looks redundant." That rule is cheap, but it can throw away the shared diagonal movement. If height and arm span move together, neither raw axis is exactly the best one-dimensional summary.
+
+<PcaSupportFigure lang="en" scenarioId="drop-column-loss" />
+
+The bar comparison uses the same fixture as the table. Keeping PC1 has lower squared reconstruction error because the kept coordinate is a rotated mixture, not just `height` or just `arm span`.
+
+## The pain: the signal is tilted
+
+The useful line cuts diagonally through the centered cloud. A raw column can only measure horizontal or vertical shadows; PCA is allowed to rotate the measuring line first.
+
+<PcaSupportFigure lang="en" scenarioId="tilted-axis" />
+
+## The core invention: center, rotate, keep
+
+PCA, or **Principal Component Analysis**, does three small things:
+
+1. Center every feature column by subtracting its mean.
+2. Find unit directions where the centered points have the largest projected variance.
+3. Keep the first few rotated coordinates and discard the quieter directions.
+
+PCA is **unsupervised**: it ignores labels and targets. It is also **linear**: each principal component is a weighted mix of the original features. Because it measures numeric spread, PCA is sensitive to feature scaling.
+
+<PcaCenteringFigure client:load lang="en" />
+
+<PcaSupportFigure lang="en" scenarioId="scale-sensitivity" />
+
+## Vocabulary bridge before the formulas
+
+- **Variance** means how spread out the projected dots are along a line.
+- A **unit direction** is an arrow of length 1, so longer arrows do not win by cheating.
+- A **projection** is the shadow a point makes on a chosen line.
+- **Orthogonal** means at a right angle; later components must look in a new right-angle direction.
+- **Covariance** summarizes which feature values rise and fall together.
+- An **eigenvector** is a direction that covariance stretches without turning.
+- A **linear mixture** is a new feature made by adding weighted old features, such as some height plus some arm span.
+
+<PcaVarianceSweep client:load lang="en" />
+
+## Formal notation
+
+Let `n` be the number of rows, `d` the number of original features, and `k` the number of components we keep. Let `X` be the raw `n x d` table, `mu` the feature-mean vector, `X_c` the centered table, `W_k` the first `k` principal directions, and `Z` the compressed coordinates.
+
+<PcaProjectionEquationFigure lang="en" />
+
+Center the table:
+
+$$
+X_c = X - \mathbf{1}\mu^T
+$$
+
+Plain meaning: subtract each feature average so PCA studies spread around the cloud center.
+
+Summarize how features move together:
+
+$$
+C = \frac{1}{n}X_c^T X_c
+$$
+
+Plain meaning: covariance summarizes shared movement. Some libraries use `1/(n-1)` instead of `1/n`; the direction story on this page is unchanged.
+
+Choose the first direction:
+
+$$
+\max_{\lVert w\rVert=1}\operatorname{Var}(X_cw)
+= \max_{\lVert w\rVert=1} w^T Cw
+$$
+
+Plain meaning: try unit directions and choose the one where projected points are most spread out.
+
+Principal directions satisfy:
+
+$$
+Cw_j = \lambda_j w_j
+$$
+
+Plain meaning: each principal direction is a stable covariance direction, and `lambda_j` is the variance carried by that direction.
+
+Compress and reconstruct:
+
+$$
+Z = X_c W_k
+$$
+
+$$
+\hat X = ZW_k^T + \mu
+$$
+
+Plain meaning: replace each row with coordinates along kept directions, then expand those coordinates and add the mean back for an approximate table.
+
+The share of total spread carried by component `j` is:
+
+$$
+\text{explained variance ratio}_j = \frac{\lambda_j}{\sum_i \lambda_i}
+$$
+
+## Trace lab: the algorithm state
+
+<PcaTraceLab client:load lang="en" />
+
+## Implementation sketch
+
+```ts
+const mu = columnMeans(X);
+const Xc = subtractColumnMeans(X, mu);
+const C = multiply(transpose(Xc), Xc).scale(1 / X.length);
+const components = eigenvectorsSortedByEigenvalue(C);
+const Wk = components.slice(0, k);
+const Z = multiply(Xc, Wk);
+const Xhat = addColumnMeans(multiply(Z, transpose(Wk)), mu);
+```
+
+The code mirrors the trace: raw table, centered table, covariance, components, projected codes, and reconstruction. Practical libraries often compute PCA with SVD directly on `X_c`, truncated SVD, or randomized methods when only a few components are needed.
+
+## Correctness intuition
+
+After centering, PC1 is the unit direction with maximum projected variance. PC2 is orthogonal to PC1 and captures the largest remaining variance. Continuing this way keeps mutually right-angle directions ordered from most spread to least spread.
+
+For a fixed number of kept components, this same ordering minimizes squared reconstruction error among linear projections. Intuitively, if a direction has large centered spread and you throw it away, many points need long reconstruction corrections.
+
+<PcaReconstructionToggle client:load lang="en" />
+
+## Complexity
+
+<PcaCostFigure lang="en" />
+
+More rows mainly make scanning and projection longer. More features can make covariance and full eigendecomposition grow much faster because feature pairs and the `d x d` matrix dominate.
+
+## Common confusions
+
+<PcaMisconceptionCards client:load lang="en" />
+
+PCA is not a curved-manifold method. If the data lies on a bent surface, PCA can only choose a flat linear view; methods such as Isomap or neighbor-embedding methods ask a different question.
+
+## Connections in the graph
+
+<DimensionalityReductionFigure lang="en" scenarioId="graph-strip" />
+
+- `feature-map` motivates PCA because both rewrite inputs into a representation; PCA learns a linear representation from the data itself.
+- `mds` contrasts with PCA because MDS starts from pairwise distances, while PCA starts from coordinate variance.
+- `lda` contrasts with PCA because LDA uses labels to find separating directions, while PCA ignores labels.
+
+## Prediction questions
+
+1. If one feature is measured in meters and another in millimeters, what might happen to PC1 before scaling?
+2. Why does PCA subtract the mean before measuring variance?
+3. In the fixture above, why does keeping PC1 beat keeping only raw height?
+4. Why would a curved data manifold be a poor match for plain PCA?
+

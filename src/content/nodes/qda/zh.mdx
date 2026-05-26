@@ -1,0 +1,77 @@
+---
+id: qda
+locale: zh
+title: 二次判别分析
+summary: 让每个类别保留自己的协方差形状，从而产生弯曲的监督式决策边界。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - classification
+prerequisites:
+  - lda
+next:
+  - sne
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import DimensionalityReductionLab from "../../../components/interactive/DimensionalityReductionLab";
+
+## 钩子问题：一个共享类别形状太僵硬
+
+LDA 假设所有类别共享一个协方差形状。这个简化很有用，但当一个类别被拉长、另一个类别近似圆形，并且边界需要弯曲时，它就会失败。
+
+二次判别分析（Quadratic Discriminant Analysis，**QDA**）修补的是这个共享形状假设。
+
+<DimensionalityReductionFigure lang="zh" scenarioId="lda-qda-boundary" />
+
+## 重要边界：QDA 不是标准投影方法
+
+QDA 主要是监督式分类器。它出现在这个降维集群里，是因为它自然接在 LDA 后面作对比：不是一个线性判别几何，而是每个类别一个协方差矩阵，从而得到二次决策边界。
+
+## 核心发明：每个类别独立协方差
+
+对每个类别 `c`，QDA 估计自己的均值和协方差。类别得分形如：
+
+$$
+\log p(x\mid c)+\log p(c)
+$$
+
+似然项使用类别专属协方差矩阵 `Sigma_c`。当这些协方差矩阵不同时，等分曲线就是二次曲线。
+
+## 追踪实验室
+
+<DimensionalityReductionLab client:load lang="zh" initialMethod="qda" />
+
+## 实现草图
+
+```ts
+for each class:
+  estimate mean_c and covariance_c;
+for a new point:
+  score each class with its Gaussian log likelihood plus log prior;
+  choose the largest score;
+```
+
+## 正确性直觉和代价
+
+QDA 比 LDA 更灵活，因为每个类别可以有自己的椭圆形状。这种灵活性需要更多参数，所以当特征很多时，它需要更多数据和更谨慎的正则化。
+
+## 常见混淆
+
+- QDA 不像 PCA 或 t-SNE 那样产生一个低维嵌入。
+- QDA 是监督式方法；它需要标签。
+- 当每个类别样本太少时，弯曲边界更容易过拟合。
+
+<DimensionalityReductionFigure lang="zh" scenarioId="graph-strip" />
+
+## 练习
+
+1. QDA 放松了 LDA 的哪个假设？
+2. 为什么 QDA 比 LDA 更容易过拟合？
+3. 为什么不应把 QDA 描述成通用可视化算法？

@@ -1,0 +1,146 @@
+---
+id: b-plus-tree
+locale: zh
+title: B+ 树
+summary: 将内部节点作为导航键、所有记录放在相连叶子中，同时支持快速点查找和范围扫描。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: data-structure
+tags:
+  - data-structures
+  - trees
+  - databases
+  - indexing
+prerequisites:
+  - b-tree
+next: []
+createdAt: 2026-05-19
+updatedAt: 2026-05-19
+---
+
+import BPlusTreeAnatomyFigure from "../../../components/interactive/BPlusTreeAnatomyFigure";
+import BPlusTreeLookupFigure from "../../../components/interactive/BPlusTreeLookupFigure";
+import BPlusTreeRangeScanDemo from "../../../components/interactive/BPlusTreeRangeScanDemo";
+
+## 问题入口
+
+数据库式索引经常同时需要回答 `id = 42` 和 `20 <= key <= 60`。B 树已经能提供很浅的点查找（point lookup），但范围查询还需要一个性质：找到第一个匹配记录后，相邻记录应该容易按顺序继续读取。
+
+<BPlusTreeAnatomyFigure lang="zh" variant="query-hook" />
+
+## 直接复用 B 树还不够
+
+在 B 树页面中，内部键携带记录或指针。这个约定适合点查找，但会打断顺序范围扫描：扫描可能要混合内部记录、叶子记录和树遍历。
+
+<BPlusTreeAnatomyFigure lang="zh" variant="btree-pain" />
+
+## 核心发明
+
+B+ 树让内部节点只做导航页。所有记录/值都放在叶子中，叶子再从左到右相连。导航键/分隔键（guide/separator key）只负责路由搜索，不是载荷记录本身。
+
+<BPlusTreeAnatomyFigure lang="zh" variant="anatomy" />
+
+本页所有图和追踪都使用同一个分隔约定：根 `[30, 60]` 的孩子区间是 `<30`、`30 <= key < 60`、`>=60`。等于分隔键时向右走，所以查找 `30` 进入中间孩子，查找 `60` 进入右孩子。像 `[20, 70]` 这样的范围是闭区间。重复键不在本节点范围内。
+
+## 点查找
+
+点查找仍然是每层下降到一个孩子。区别在于遇到内部匹配时怎么办：在根里看到导航键 `30` 不会返回记录。相等时继续走右侧孩子，真正记录要在叶子中找到。
+
+<BPlusTreeLookupFigure client:load lang="zh" />
+
+## 范围扫描
+
+范围扫描（range scan）先下降到可能包含下界的叶子。然后按顺序扫描叶子记录，并沿叶子链接继续向右，直到越过上界。
+
+<BPlusTreeRangeScanDemo client:load lang="zh" />
+
+`[20, 65]` 预设会在叶子 `C` 内停止：它收集 `60`，看到 `70`，然后在包含 `70` 之前停止。
+
+## 内部键与叶子记录
+
+同一个数字可以在上层作为导航键出现，也可以在下层作为真实记录出现。分隔键 `50` 可以被复制到父节点，而记录 `50 -> value` 仍留在叶子中。
+
+<BPlusTreeAnatomyFigure lang="zh" variant="internal-vs-leaf" />
+
+## 叶子分裂
+
+叶子溢出时，先分裂叶子，再把新右叶子的第一个键复制到父节点作为分隔键。和上一页的 B 树分裂不同，这个分隔键是为了路由而复制；记录本身仍留在叶子中。
+
+<BPlusTreeRangeScanDemo client:load lang="zh" showSplit={true} />
+
+## 形式版本
+
+B+ 树保持这些承诺：内部节点保存导航键和子指针；叶子保存所有记录/值；所有叶子处在同一深度；叶子按照键顺序相连。
+
+<BPlusTreeAnatomyFigure lang="zh" variant="invariants" />
+
+## 实现草图
+
+```ts
+function lookup(root: InternalPage, key: number) {
+  let page: Page = root;
+  while (!page.isLeaf) {
+    const i = firstSeparatorGreaterThan(key); // equality goes right
+    page = page.children[i];
+  }
+  return page.records.find((record) => record.key === key);
+}
+
+function rangeQuery(root: InternalPage, lo: number, hi: number) {
+  let leaf = descendToLeaf(root, lo);
+  const out = [];
+  while (leaf) {
+    for (const record of leaf.records) {
+      if (record.key < lo) continue;
+      if (record.key > hi) return out;
+      out.push(record);
+    }
+    leaf = leaf.next;
+  }
+  return out;
+}
+```
+
+范围查询只下降一次。之后，兄弟叶子指针会把扫描继续带向右侧。
+
+## 正确性直觉
+
+导航键会把每个键路由到唯一可能包含它的叶子范围。每个叶子内部记录有序，叶子链接又按键顺序连接所有叶子。因此范围扫描一旦到达下界所在叶子，向右走就会按非递减顺序看到候选记录，直到越过上界。
+
+## 复杂度
+
+设 `$B$` 是简化的扇出/页容量，`$n$` 是记录数，`$k$` 是返回的记录数。
+
+$$
+\text{point lookup} = O(h) \approx O(\log_B n)
+$$
+
+$$
+\text{range query} = O(\log_B n + k)
+$$
+
+扫描项表示匹配记录以及承载它们的叶页，不只是 CPU 比较。
+
+<BPlusTreeAnatomyFigure lang="zh" variant="complexity" />
+
+## 常见混淆
+
+<BPlusTreeAnatomyFigure lang="zh" variant="confusions" />
+
+删除、重复键记录列表、锁、日志和真实页格式都故意不放在本节点中。
+
+## 图中的连接
+
+B+ 树由 B 树引出：保留适合页读取的浅层搜索形状，再把记录移动到相连叶子中，让范围扫描高效。
+
+<BPlusTreeAnatomyFigure lang="zh" variant="connection" />
+
+## 练习
+
+<BPlusTreeAnatomyFigure lang="zh" variant="exercise" />
+
+1. 根为 `[30, 60]` 时，查找 `30` 会进入哪个孩子？
+2. 范围 `[20, 65]` 返回什么？为什么在 `70` 前停止？
+3. 把 `55` 插入 `[30, 40, 50]` 后，哪个分隔键会被复制到上层？
+4. 值是存放在内部的分隔键 `60` 上，还是只存放在叶子记录 `60:value` 中？

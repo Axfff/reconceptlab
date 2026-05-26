@@ -1,0 +1,146 @@
+---
+id: b-plus-tree
+locale: en
+title: B+-Tree
+summary: Speed up point lookups and range scans by keeping guide keys above and all records in linked leaves.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: data-structure
+tags:
+  - data-structures
+  - trees
+  - databases
+  - indexing
+prerequisites:
+  - b-tree
+next: []
+createdAt: 2026-05-19
+updatedAt: 2026-05-19
+---
+
+import BPlusTreeAnatomyFigure from "../../../components/interactive/BPlusTreeAnatomyFigure";
+import BPlusTreeLookupFigure from "../../../components/interactive/BPlusTreeLookupFigure";
+import BPlusTreeRangeScanDemo from "../../../components/interactive/BPlusTreeRangeScanDemo";
+
+## Hook problem
+
+A database-style index often needs both `id = 42` and `20 <= key <= 60`. A B-tree already gives shallow point lookup, but range queries want one more property: after finding the first matching record, nearby records should be easy to read in order.
+
+<BPlusTreeAnatomyFigure lang="en" variant="query-hook" />
+
+## Reusing a B-tree is not enough
+
+In the B-tree page, internal keys carry records or pointers. That convention is useful for point lookup, but it interrupts sequential range scanning: a scan may need to combine internal records, leaf records, and tree traversal.
+
+<BPlusTreeAnatomyFigure lang="en" variant="btree-pain" />
+
+## The core invention
+
+A B+-tree keeps internal nodes as guide-only pages. All records/values live in the leaves, and leaves are linked left-to-right. A guide key or separator key routes search; it is not itself the payload record.
+
+<BPlusTreeAnatomyFigure lang="en" variant="anatomy" />
+
+This page uses the fixed separator convention shown in the traces: root `[30, 60]` has child intervals `<30`, `30 <= key < 60`, and `>=60`. Equality goes right, so lookup `30` descends to the middle child and lookup `60` descends to the right child. Range notation such as `[20, 70]` is inclusive. Duplicate keys are out of scope.
+
+## Point lookup
+
+Point lookup still descends one child per level. The difference is what happens on an internal match: finding guide key `30` in the root does not return a record. Equality follows the right-hand child and the actual record is found in a leaf.
+
+<BPlusTreeLookupFigure client:load lang="en" />
+
+## Range scan
+
+A range query first descends to the leaf that can contain the lower bound. Then it scans leaf records in order, following leaf links until the upper bound is passed.
+
+<BPlusTreeRangeScanDemo client:load lang="en" />
+
+The `[20, 65]` preset stops inside leaf `C`: it collects `60`, sees `70`, and stops before including it.
+
+## Internal key versus leaf record
+
+The same number can appear as a guide above and as a real record below. Separator `50` can be copied into the parent while record `50 -> value` remains in a leaf.
+
+<BPlusTreeAnatomyFigure lang="en" variant="internal-vs-leaf" />
+
+## Leaf split
+
+When a leaf overflows, split the leaf and copy the first key of the new right leaf into the parent as a separator. Unlike the B-tree split on the previous page, this separator is copied for routing; the record stays in the leaf.
+
+<BPlusTreeRangeScanDemo client:load lang="en" showSplit={true} />
+
+## Formal version
+
+A B+-tree keeps these promises: internal nodes contain guide keys and child pointers; leaves contain all records/values; all leaves are at the same depth; leaves are linked in sorted order.
+
+<BPlusTreeAnatomyFigure lang="en" variant="invariants" />
+
+## Implementation sketch
+
+```ts
+function lookup(root: InternalPage, key: number) {
+  let page: Page = root;
+  while (!page.isLeaf) {
+    const i = firstSeparatorGreaterThan(key); // equality goes right
+    page = page.children[i];
+  }
+  return page.records.find((record) => record.key === key);
+}
+
+function rangeQuery(root: InternalPage, lo: number, hi: number) {
+  let leaf = descendToLeaf(root, lo);
+  const out = [];
+  while (leaf) {
+    for (const record of leaf.records) {
+      if (record.key < lo) continue;
+      if (record.key > hi) return out;
+      out.push(record);
+    }
+    leaf = leaf.next;
+  }
+  return out;
+}
+```
+
+The range path descends once. After that, sibling pointers carry the scan forward.
+
+## Correctness intuition
+
+Guide keys route every key into the unique leaf range that can contain it. Leaf records are sorted inside each leaf, and leaf links connect the leaves in sorted order. Therefore, once a range scan reaches the lower-bound leaf, walking right sees candidate records in nondecreasing key order until the upper bound is passed.
+
+## Complexity
+
+Let `$B$` be a simplified fanout/page-capacity term, `$n$` the number of records, and `$k$` the number of records returned.
+
+$$
+\text{point lookup} = O(h) \approx O(\log_B n)
+$$
+
+$$
+\text{range query} = O(\log_B n + k)
+$$
+
+The scan term represents matching records and the leaf pages that contain them, not just CPU comparisons.
+
+<BPlusTreeAnatomyFigure lang="en" variant="complexity" />
+
+## Common confusions
+
+<BPlusTreeAnatomyFigure lang="en" variant="confusions" />
+
+Deletion, duplicate-key record lists, locking, logging, and real page formats are intentionally out of scope here.
+
+## Connections in the graph
+
+B+-trees are motivated by B-trees: keep the shallow page-based search shape, then move records to linked leaves to make range scans efficient.
+
+<BPlusTreeAnatomyFigure lang="en" variant="connection" />
+
+## Exercises
+
+<BPlusTreeAnatomyFigure lang="en" variant="exercise" />
+
+1. With root `[30, 60]`, which child receives lookup `30`?
+2. What does range `[20, 65]` return, and why does it stop before `70`?
+3. After inserting `55` into `[30, 40, 50]`, which separator is copied upward?
+4. Is a value stored at internal separator `60`, or only in the leaf record `60:value`?

@@ -1,0 +1,109 @@
+---
+id: dunn-index
+locale: en
+title: Dunn Index
+summary: Score clustering by dividing the weakest inter-cluster gap by the widest within-cluster diameter.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites:
+  - silhouette-score
+next:
+  - calinski-harabasz-index
+  - davies-bouldin-index
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import InternalClusteringMetricFigure from "../../../components/interactive/InternalClusteringMetricFigure";
+import InternalClusteringMetricLab from "../../../components/interactive/InternalClusteringMetricLab";
+import { dunnIndexFromPoints, internalClusteringFixture } from "../../../components/interactive/internalClusteringMetricsTrace";
+
+## Hook problem: the weakest gap can decide the story
+
+Averages can hide the exact place where a clustering is fragile.
+
+Dunn Index asks an extreme question: "How large is the closest gap between clusters, compared with the widest cluster?"
+
+<InternalClusteringMetricFigure lang="en" scenarioId="dunn-extremes" />
+
+## First naive idea: average the distances
+
+A distance average can look good even when one bridge point almost touches another cluster.
+
+For some applications, that one weak gap is the part you care about.
+
+## Core invention: minimum separation over maximum diameter
+
+This page uses a common Dunn variant:
+
+- Inter-cluster separation is the smallest distance between any point in one cluster and any point in another cluster.
+- Intra-cluster diameter is the largest distance between two points in the same cluster.
+
+## Formal version
+
+$$
+Dunn=\frac{\min_{i\ne j}\delta(C_i, C_j)}{\max_l \Delta(C_l)}
+$$
+
+Here, `delta` is the closest cross-cluster pair distance, and `Delta` is the largest same-cluster pair distance.
+
+Higher Dunn is better. It becomes unavailable when the largest within-cluster diameter is zero.
+
+## Interactive preset lab
+
+<InternalClusteringMetricLab client:load lang="en" />
+
+Static no-JS fallback:
+
+<table className="pnp-mini-table">
+  <caption>Fixture Dunn extremes</caption>
+  <tbody>
+    {(() => {
+      const dunn = dunnIndexFromPoints(internalClusteringFixture);
+      return [
+        ["closest cross-cluster pair", dunn.closestPair?.join(" - ") ?? "-"],
+        ["minimum gap", dunn.minInterclusterDistance.toFixed(3)],
+        ["widest cluster", dunn.widestCluster ?? "-"],
+        ["maximum diameter", dunn.maxIntraclusterDiameter.toFixed(3)],
+        ["Dunn", dunn.value?.toFixed(3) ?? "not available"]
+      ].map(([label, value]) => (
+        <tr key={label}>
+          <th scope="row">{label}</th>
+          <td>{value}</td>
+        </tr>
+      ));
+    })()}
+  </tbody>
+</table>
+
+## Implementation sketch
+
+```ts
+function dunn(minGap: number, maxDiameter: number) {
+  return maxDiameter === 0 ? null : minGap / maxDiameter;
+}
+```
+
+## Complexity
+
+This variant needs pairwise distances, so the direct implementation is `O(n^2)`.
+
+## Common confusions
+
+- Dunn is higher-better.
+- Dunn is sensitive to outliers because it uses extremes.
+- Different texts may use different inter-cluster distance variants; this page uses closest cross-cluster pair distance.
+
+<InternalClusteringMetricFigure lang="en" scenarioId="metric-contrast" />
+
+## Exercises
+
+1. Which quantity is the numerator?
+2. Why does a bridge point reduce Dunn quickly?
+3. What kind of outlier can make the denominator too large?

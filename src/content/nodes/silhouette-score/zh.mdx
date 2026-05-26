@@ -1,0 +1,119 @@
+---
+id: silhouette-score
+locale: zh
+title: 轮廓系数
+summary: 在没有参考标签时，用每个点的同簇距离和最近异簇距离来评价聚类。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites: []
+next:
+  - calinski-harabasz-index
+  - davies-bouldin-index
+  - dunn-index
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import InternalClusteringMetricFigure from "../../../components/interactive/InternalClusteringMetricFigure";
+import InternalClusteringMetricLab from "../../../components/interactive/InternalClusteringMetricLab";
+import { internalClusteringFixture, silhouetteFromPoints } from "../../../components/interactive/internalClusteringMetricsTrace";
+
+## 问题入口：这次没有答案标签
+
+外部聚类指标会把预测簇和参考标签对比。轮廓系数（Silhouette score）不同：它是一个**内部**聚类指标。
+
+它只看点的位置、距离和簇分配。它不知道某个点真正属于 `graph`、`tree` 还是 `hash`。
+
+<InternalClusteringMetricFigure lang="zh" scenarioId="geometry-fixture" />
+
+## 第一个朴素想法：只看簇内是否靠近
+
+如果一个簇里的点彼此很近，这个簇看起来不错。但这只回答了一半问题。
+
+如果某个点也很靠近另一个簇，它可能在边界上，甚至可能被分错了。
+
+## 核心发明：同簇距离对最近异簇距离
+
+对一个点 `i`，定义：
+
+- `a(i)`：`i` 到同簇其他点的平均距离。
+- `b(i)`：`i` 到最近其他簇的平均距离。
+
+<InternalClusteringMetricFigure lang="zh" scenarioId="silhouette-point" />
+
+## 形式化版本
+
+点 `i` 的轮廓值是：
+
+$$
+s(i)=\frac{b(i)-a(i)}{\max(a(i), b(i))}
+$$
+
+整个聚类的轮廓系数是所有 `s(i)` 的平均值。
+
+接近 `1` 表示点明显更靠近自己的簇。接近 `0` 表示点在簇之间的边界附近。负数表示最近的其他簇平均上比当前簇更近。
+
+对单点簇，本实现令 `s(i)=0`，避免把一个孤立点奖励成“完美分离”。
+
+## 交互实验台
+
+<InternalClusteringMetricLab client:load lang="zh" />
+
+静态无 JS 备选：
+
+<table className="pnp-mini-table">
+  <caption>固定样本的轮廓值</caption>
+  <thead>
+    <tr>
+      <th>点</th>
+      <th>簇</th>
+      <th>a(i)</th>
+      <th>b(i)</th>
+      <th>s(i)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {silhouetteFromPoints(internalClusteringFixture).points.map((point) => (
+      <tr key={point.id}>
+        <th scope="row">{point.id}</th>
+        <td>{point.cluster}</td>
+        <td>{point.ownAverage.toFixed(3)}</td>
+        <td>{point.nearestOtherAverage.toFixed(3)}</td>
+        <td>{point.value.toFixed(3)}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+## 实现草图
+
+```ts
+function silhouettePoint(a: number, b: number) {
+  const denominator = Math.max(a, b);
+  return denominator === 0 ? 0 : (b - a) / denominator;
+}
+```
+
+## 复杂度
+
+直接实现通常需要成对距离，因此对 `n` 个点是 `O(n^2)` 时间。除非缓存完整距离矩阵，否则额外空间主要是摘要和点级分数。
+
+## 常见误区
+
+- 轮廓系数是内部指标：它不使用参考标签。
+- 越高越好，但它仍然依赖距离定义。
+- 点级分数为负，通常是在提醒“另一个簇平均上更近”。
+
+<InternalClusteringMetricFigure lang="zh" scenarioId="graph-strip" />
+
+## 练习
+
+1. 为什么轮廓系数同时需要 `a(i)` 和 `b(i)`？
+2. 接近 `0` 的分数说明点可能处在什么位置？
+3. 为什么不应该让单点簇自动得到 `1` 分？

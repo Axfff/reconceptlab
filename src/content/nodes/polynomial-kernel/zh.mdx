@@ -1,0 +1,76 @@
+---
+id: polynomial-kernel
+locale: zh
+title: 多项式核
+summary: 通过点积捷径加入幂次项和特征交互，而不是手动展开每一项。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - kernels
+  - similarity
+prerequisites:
+  - feature-map
+  - kernel
+  - linear-kernel
+next:
+  - rbf-kernel
+  - sigmoid-kernel
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import KernelFunctionFigure from "../../../components/interactive/KernelFunctionFigure";
+import KernelSimilarityLab from "../../../components/interactive/KernelSimilarityLab";
+
+## Hook problem：交互项很重要
+
+原始坐标 `x1` 和 `x2` 单独看可能都很弱，但它们的乘积 `x1 x2` 可能很有用。手动加入每个平方、三次方和交互项，很快就会变得繁琐。
+
+**多项式核（polynomial kernel）**把这些交互打包进一个公式。
+
+<KernelFunctionFigure lang="zh" scenarioId="polynomial-curves" />
+
+## First naive idea：手动扩展特征向量
+
+对二次情况，映射可以包含 `x1^2`、`x1 x2` 和 `x2^2`。但维度更多、次数更高时，项数会快速增长。
+
+核函数捷径保留这些项的效果，却不要求页面或程序把所有项列出来。
+
+## Formal version
+
+$$
+K(x,z)=(\gamma x^Tz+c)^d
+$$
+
+这里 `d` 是次数，`gamma` 缩放点积，`c` 在乘方之前做平移。`d=1` 时接近缩放后的线性核；更高次数会加入更高阶交互。
+
+## Interactive comparison
+
+<KernelSimilarityLab client:load lang="zh" initialKernel="polynomial" />
+
+## Implementation sketch
+
+```ts
+function polynomialKernel(dot: number, gamma = 0.5, c = 1, degree = 2) {
+  return (gamma * dot + c) ** degree;
+}
+```
+
+## Common confusions
+
+- 多项式核不一定比线性核更好。
+- 更高次数可以制造更灵活的边界，但也可能过拟合或产生很大的数值。
+- 参数是几何的一部分；改参数就是改相似度尺度。
+
+## Connections
+
+多项式核通过加入交互特征来推广线性核。它和 RBF 核形成对比：RBF 用距离接近来衡量相似，而不是使用点积的幂次。
+
+## Exercises
+
+1. 次数 `d` 控制什么？
+2. 为什么手动展开多项式特征会很痛苦？
+3. 当 `d=1` 时会发生什么？

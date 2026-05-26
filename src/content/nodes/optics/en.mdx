@@ -1,0 +1,79 @@
+---
+id: optics
+locale: en
+title: OPTICS
+summary: Order points by density reachability so cluster structure can be read across multiple distance scales.
+status: draft
+translationStatus: source
+difficulty: advanced
+conceptType: algorithm
+tags:
+  - machine-learning
+  - clustering
+  - algorithms
+prerequisites:
+  - dbscan
+next:
+  - hdbscan
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import ClusteringAlgorithmFigure from "../../../components/interactive/ClusteringAlgorithmFigure";
+import ClusteringAlgorithmLab from "../../../components/interactive/ClusteringAlgorithmLab";
+
+## Hook problem: one radius is too brittle
+
+DBSCAN can find non-round clusters, but it still asks for one `epsilon`. If one part of the data is dense and another part is looser, one radius can split one group or merge another.
+
+OPTICS keeps the density-walk idea but records an ordering instead of committing to one cut.
+
+<ClusteringAlgorithmFigure lang="en" scenarioId="reachability-order" />
+
+## First naive idea: run DBSCAN for many epsilon values
+
+Trying many radii can work, but it repeats the same neighborhood work and leaves you comparing many separate outputs.
+
+OPTICS repairs that by producing one reachability plot.
+
+## Core invention: reachability distance
+
+OPTICS visits points in an order that keeps nearby dense points close together. For each point it records:
+
+- **core distance**: the distance needed for that point to become core.
+- **reachability distance**: how far this point had to be reached from already processed dense structure.
+
+Low reachability runs look like valleys. Large jumps mark sparse gaps.
+
+## Interactive trace lab
+
+<ClusteringAlgorithmLab client:load lang="en" initialAlgorithm="optics" />
+
+## Implementation sketch
+
+```ts
+for each unprocessed point:
+  compute core distance;
+  update neighbor reachability priorities;
+  visit the next point with smallest reachability distance;
+```
+
+## Correctness intuition and cost
+
+OPTICS preserves a density-neighborhood invariant: the next point is chosen by the cheapest current density reachability, so dense regions appear as contiguous low-reachability runs.
+
+With indexing, runtime is often described near `O(n log n)` on favorable data; without efficient neighborhood search it can degrade toward `O(n^2)`.
+
+## Common confusions
+
+- OPTICS does not directly output one final clustering unless you choose an extraction rule.
+- Reachability distance is not the same as Euclidean distance from the previous point.
+- It still needs density parameters, but it is less tied to one final `epsilon` cut.
+
+<ClusteringAlgorithmFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. What does a valley in a reachability plot suggest?
+2. Why is OPTICS useful when densities vary?
+3. What extra decision is needed after the ordering is built?

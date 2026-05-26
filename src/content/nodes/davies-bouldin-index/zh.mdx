@@ -1,0 +1,86 @@
+---
+id: davies-bouldin-index
+locale: zh
+title: Davies-Bouldin 指数
+summary: 通过平均每个簇的最坏“离散度对分离度”邻居来评价聚类。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites:
+  - silhouette-score
+next:
+  - dunn-index
+  - calinski-harabasz-index
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import InternalClusteringMetricFigure from "../../../components/interactive/InternalClusteringMetricFigure";
+import InternalClusteringMetricLab from "../../../components/interactive/InternalClusteringMetricLab";
+
+## 问题入口：一个危险邻居就可能很重要
+
+一个聚类在平均意义上看起来还行，但某个簇可能有一个非常相似的邻居。
+
+Davies-Bouldin 指数（DB）让每个簇问：“哪个其他簇是我最危险的对手？”
+
+<InternalClusteringMetricFigure lang="zh" scenarioId="db-worst-rival" />
+
+## 第一个朴素想法：只检查簇的离散度
+
+到质心的平均距离可以说明簇是否紧凑。
+
+但离散度 `0.8` 在最近质心相距 `8` 时问题不大；如果最近质心只相距 `1`，就很危险。
+
+## 核心发明：相对于质心距离的离散度
+
+对簇 `i`：
+
+- `S_i` 是簇内点到质心 `i` 的平均距离。
+- `M_ij` 是质心 `i` 和质心 `j` 之间的距离。
+- `R_ij=(S_i+S_j)/M_ij` 是两个簇的相似程度。
+
+DB 对每个簇保留最坏的 `R_ij`，再对这些最坏情况求平均。
+
+## 形式化版本
+
+$$
+DB=\frac{1}{k}\sum_i \max_{j\ne i} \frac{S_i+S_j}{M_{ij}}
+$$
+
+DB 越低越好。小值表示每个簇即使面对最危险邻居，相比合并离散度仍然分得开。
+
+## 交互实验台
+
+<InternalClusteringMetricLab client:load lang="zh" />
+
+## 实现草图
+
+```ts
+function dbClusterScore(scatterI: number, scatterJ: number, centroidDistance: number) {
+  return centroidDistance === 0 ? null : (scatterI + scatterJ) / centroidDistance;
+}
+```
+
+## 复杂度
+
+已知质心后，计算离散度是 `O(n)`。比较所有质心对是 `O(k^2)`，其中 `k` 是簇数。
+
+## 常见误区
+
+- DB 是越低越好。
+- DB 使用质心和平均离散度，因此可能看不出非凸簇形状。
+- `max` 是刻意设计：每个簇都按最危险邻居来判断。
+
+<InternalClusteringMetricFigure lang="zh" scenarioId="metric-contrast" />
+
+## 练习
+
+1. 为什么公式里要加上 `S_i + S_j`？
+2. 为什么质心距离很小会让 DB 变大？
+3. `max` 操作防止哪种问题被平均值隐藏？

@@ -1,0 +1,73 @@
+---
+id: sne
+locale: zh
+title: 随机邻居嵌入
+summary: 通过匹配高维和低维中的邻居概率来保留局部邻域。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - visualization
+prerequisites:
+  - isomap
+  - qda
+next:
+  - t-sne
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import DimensionalityReductionLab from "../../../components/interactive/DimensionalityReductionLab";
+
+## 钩子问题：全局距离要求太高
+
+在高维中，想把每个距离都准确保留到二维地图里，往往不现实。为了探索数据，一个更有用的承诺是局部的：让每个点可能的邻居仍然靠近。
+
+随机邻居嵌入（Stochastic Neighbor Embedding，**SNE**）把邻域变成概率，并尝试匹配这些概率。
+
+<DimensionalityReductionFigure lang="zh" scenarioId="sne-neighbors" />
+
+## 第一个朴素想法：保留精确距离
+
+保距离地图会同时对抗许多约束。如果学习者主要想看局部群组，精确全局距离可能不是正确目标。
+
+## 核心发明：匹配邻居概率
+
+对点 `i`，SNE 定义点 `j` 被选为它邻居的概率：
+
+$$
+p_{j|i} \propto \exp\left(-\frac{\lVert x_i-x_j\rVert^2}{2\sigma_i^2}\right)
+$$
+
+然后它搜索低维点，使低维概率接近高维概率，并最小化二者之间的 KL 散度。
+
+## 追踪实验室
+
+<DimensionalityReductionLab client:load lang="zh" initialMethod="sne" />
+
+## 实现草图
+
+```ts
+convert high-dimensional distances into neighbor probabilities;
+initialize low-dimensional coordinates;
+compute low-dimensional neighbor probabilities;
+move points to reduce KL divergence;
+```
+
+## 常见混淆
+
+- SNE 更擅长保留局部邻域，而不是全局比例。
+- 图中的坐标轴没有原始特征含义。
+- 二维拥挤问题会引出 t-SNE 的重尾修补。
+
+<DimensionalityReductionFigure lang="zh" scenarioId="graph-strip" />
+
+## 练习
+
+1. SNE 为什么使用概率，而不是直接使用原始距离？
+2. 较高的 `p_{j|i}` 表示什么？
+3. t-SNE 修补了什么失败？

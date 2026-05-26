@@ -1,0 +1,76 @@
+---
+id: t-sne
+locale: en
+title: t-SNE
+summary: Repair SNE's crowded maps with a heavy-tailed low-dimensional similarity that separates non-neighbors more strongly.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - visualization
+prerequisites:
+  - sne
+next:
+  - umap
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import DimensionalityReductionLab from "../../../components/interactive/DimensionalityReductionLab";
+
+## Hook problem: too many neighbors crowd the center
+
+SNE tries to preserve local probabilities, but two dimensions do not have enough room for all moderately distant points to stay moderately distant. Points can crowd into the middle.
+
+**t-SNE** keeps the neighbor-probability idea and changes the low-dimensional similarity so non-neighbors can move farther away.
+
+<DimensionalityReductionFigure lang="en" scenarioId="sne-neighbors" />
+
+## First naive idea: use the same Gaussian shape in both spaces
+
+A Gaussian tail becomes tiny quickly. In a low-dimensional map, that makes it difficult to represent many medium-distance relationships without crowding.
+
+## Core invention: heavy-tailed low-dimensional similarity
+
+t-SNE uses a Student-t style similarity in the map:
+
+$$
+q_{ij} \propto (1+\lVert y_i-y_j\rVert^2)^{-1}
+$$
+
+The heavier tail gives far low-dimensional points enough probability mass for the optimizer to push non-neighbors apart.
+
+## Trace lab
+
+<DimensionalityReductionLab client:load lang="en" initialMethod="t-sne" />
+
+## Implementation sketch
+
+```ts
+compute symmetric high-dimensional neighbor probabilities;
+initialize a two-dimensional map;
+compute Student-t low-dimensional similarities;
+optimize KL divergence with attraction and repulsion;
+```
+
+## Interpretation cautions
+
+t-SNE is excellent for local exploration, but it is not a cluster validation metric. Cluster area, gap size, and axis direction can change with perplexity, initialization, learning rate, and random seed.
+
+## Common confusions
+
+- Nearby points are more meaningful than far-apart distances.
+- Bigger visual gaps do not automatically mean bigger original distances.
+- Repeated runs can differ.
+
+<DimensionalityReductionFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. What problem does the Student-t tail repair?
+2. Why should t-SNE plots not be used as automatic proof of clusters?
+3. Which visual relationships are safest to read from t-SNE?

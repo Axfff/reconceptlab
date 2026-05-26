@@ -1,0 +1,124 @@
+---
+id: adjusted-rand-index
+locale: zh
+title: 调整 Rand 指数
+summary: 在 Rand 式成对一致性中减去由簇大小和类别大小边际产生的机会一致性。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites:
+  - rand-index
+next:
+  - fowlkes-mallows-index
+createdAt: 2026-05-21
+updatedAt: 2026-05-21
+---
+
+import ClusteringMetricFigure from "../../../components/interactive/ClusteringMetricFigure";
+import ClusteringMetricLab from "../../../components/interactive/ClusteringMetricLab";
+
+## 问题入口：原始一致性还不够
+
+固定样本的 Rand 指数很高：
+
+$$
+RI=\frac{23}{28}\approx 0.821
+$$
+
+但其中很多一致来自容易得到的 `TN`：两个样本参考标签不同，预测簇也不同。
+
+调整 Rand 指数（Adjusted Rand Index, ARI）要问：在这些簇大小和类别大小固定时，观察到的一致性比随机情况好多少？
+
+<ClusteringMetricFigure lang="zh" scenarioId="ari-adjustment" />
+
+## 第一个朴素想法：直接相信 RI
+
+原始 RI 有用，但它不知道 `23/28` 对这个边际形状来说到底有多难。
+
+两个随机划分只要有相同的簇大小和类别大小，也可能偶然产生一些同簇同标签样本对。
+
+## 核心发明：减去期望一致性
+
+先建立“预测簇 × 参考标签”的列联表（contingency table）。
+
+设：
+
+- `S = sum_ij binom(n_ij, 2)`：观察到的同簇同标签样本对。
+- `A = sum_i binom(a_i, 2)`：由预测簇大小产生的同簇样本对。
+- `B = sum_j binom(b_j, 2)`：由参考类别大小产生的同标签样本对。
+- `T = binom(n, 2)`：全部无序样本对。
+- `E = AB / T`：由边际规模产生的机会期望。
+- `M = (A + B) / 2`：归一化用的最大项。
+
+## 形式化版本
+
+$$
+ARI=\frac{S-E}{M-E}
+$$
+
+固定样本中：
+
+$$
+S=3,\quad A=4,\quad B=7,\quad T=28,\quad E=1,\quad M=5.5
+$$
+
+因此：
+
+$$
+ARI=\frac{3-1}{5.5-1}=\frac{2}{4.5}\approx 0.444
+$$
+
+## 交互实验台
+
+<ClusteringMetricLab client:load lang="zh" />
+
+## 如何解读
+
+- `1` 表示两个划分完全匹配，只是簇名可以不同。
+- 接近 `0` 表示在这些边际规模下，同簇一致性大约只是随机水平。
+- 负值表示比机会期望还差。
+
+<ClusteringMetricFigure lang="zh" scenarioId="metric-contrast" />
+
+## 退化分支
+
+如果 `M - E = 0`，归一化公式没有可移动空间。实现时，如果两个划分在这种退化形状下完全相同，返回 `1`；否则返回 `null`，不要渲染 `NaN`。
+
+## 实现草图
+
+```ts
+function choose2(x: number) {
+  return x < 2 ? 0 : (x * (x - 1)) / 2;
+}
+
+function adjustedRand(S: number, A: number, B: number, n: number) {
+  const T = choose2(n);
+  const E = T === 0 ? 0 : (A * B) / T;
+  const M = (A + B) / 2;
+  const denominator = M - E;
+  return denominator === 0 ? null : (S - E) / denominator;
+}
+```
+
+## 复杂度
+
+建立列联表需要 `O(n)`。之后 ARI 在表格和边际上计算，复杂度是 `O(rc)`。
+
+## 常见误区
+
+- ARI 不是换了分母的 RI；它会减去机会水平。
+- ARI 可以是负数。
+- ARI 仍然需要外部参考标签，不是内部聚类目标。
+
+<ClusteringMetricFigure lang="zh" scenarioId="graph-strip" />
+
+## 练习
+
+1. 哪个符号表示观察到的同簇同标签样本对？
+2. 为什么单点过度拆分的纯度是 `1.0`，但 ARI 是 `0`？
+3. 负的 ARI 用一句话应该怎么解释？

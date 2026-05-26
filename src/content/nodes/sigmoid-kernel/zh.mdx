@@ -1,0 +1,71 @@
+---
+id: sigmoid-kernel
+locale: zh
+title: Sigmoid 核
+summary: 用 tanh 压缩仿射点积，同时记住这种核对参数敏感，并不总是有效。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - kernels
+  - similarity
+prerequisites:
+  - kernel
+  - linear-kernel
+next: []
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import KernelFunctionFigure from "../../../components/interactive/KernelFunctionFigure";
+import KernelSimilarityLab from "../../../components/interactive/KernelSimilarityLab";
+
+## Hook problem：点积可能没有上界
+
+线性核和多项式核可能产生很大的正值或负值。一个自然的修补是把点积分数送进一个非线性函数里压缩。
+
+**Sigmoid 核（sigmoid kernel）**使用 `tanh`，形状类似早期神经网络激活函数。
+
+<KernelFunctionFigure lang="zh" scenarioId="sigmoid-saturation" />
+
+## First naive idea：压缩后就当作核
+
+压缩很有吸引力，因为输出有界。但有界相似度不自动等于有效核。核方法需要成对矩阵表现得像特征空间里的内积。
+
+## Formal version
+
+$$
+K(x,z)=\tanh(\gamma x^Tz+c)
+$$
+
+参数 `gamma` 控制点积分数的斜率。参数 `c` 在进入 `tanh` 前平移分数。输出位于 `-1` 到 `1` 之间。
+
+## Interactive comparison
+
+<KernelSimilarityLab client:load lang="zh" initialKernel="sigmoid" />
+
+## Implementation sketch
+
+```ts
+function sigmoidKernel(dot: number, gamma = 0.5, c = 1) {
+  return Math.tanh(gamma * dot + c);
+}
+```
+
+## Validity caveat
+
+不同于线性核、标准参数下的多项式核和 RBF 核，Sigmoid 核并不是对所有参数和数据集都正半定。把它当作一个专门选项：确认库接受这些参数，并用验证集表现证明它值得使用。
+
+## Common confusions
+
+- Sigmoid 核不是逻辑回归。
+- 输出有界不保证是有效核。
+- 饱和会让多个很大的点积看起来几乎一样。
+
+## Exercises
+
+1. `tanh` 起什么作用？
+2. 为什么 Sigmoid 核比 RBF 核更需要谨慎？
+3. 饱和会隐藏什么差异？

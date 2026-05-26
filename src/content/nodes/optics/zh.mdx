@@ -1,0 +1,79 @@
+---
+id: optics
+locale: zh
+title: OPTICS
+summary: 按密度可达性排列点，让多个距离尺度上的簇结构能从同一个排序中读出来。
+status: draft
+translationStatus: needs-review
+difficulty: advanced
+conceptType: algorithm
+tags:
+  - machine-learning
+  - clustering
+  - algorithms
+prerequisites:
+  - dbscan
+next:
+  - hdbscan
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import ClusteringAlgorithmFigure from "../../../components/interactive/ClusteringAlgorithmFigure";
+import ClusteringAlgorithmLab from "../../../components/interactive/ClusteringAlgorithmLab";
+
+## Hook problem：一个半径太脆弱
+
+DBSCAN 能找到非圆形簇，但仍然需要一个 `epsilon`。如果一部分数据很密，另一部分更松，一个半径可能拆开某个组，又合并另一个组。
+
+**OPTICS** 保留密度行走思想，但记录排序，而不是立即承诺一个切分。
+
+<ClusteringAlgorithmFigure lang="zh" scenarioId="reachability-order" />
+
+## First naive idea：用很多 epsilon 反复跑 DBSCAN
+
+尝试很多半径有时可行，但会重复邻域计算，还会留下很多输出需要比较。
+
+OPTICS 的修补是生成一个可达性图（reachability plot）。
+
+## Core invention：可达距离
+
+OPTICS 按一种顺序访问点，让相近的稠密点尽量靠在一起。它为每个点记录：
+
+- **核心距离（core distance）**：这个点成为核心点所需的距离。
+- **可达距离（reachability distance）**：从已经处理的稠密结构到达该点需要多远。
+
+低可达距离的连续片段像低谷。大的跳跃标记稀疏间隔。
+
+## Interactive trace lab
+
+<ClusteringAlgorithmLab client:load lang="zh" initialAlgorithm="optics" />
+
+## Implementation sketch
+
+```ts
+for each unprocessed point:
+  compute core distance;
+  update neighbor reachability priorities;
+  visit the next point with smallest reachability distance;
+```
+
+## Correctness intuition and cost
+
+OPTICS 保持一个密度邻域不变量：下一个点由当前最便宜的密度可达性选择，因此稠密区域会形成连续的低可达距离片段。
+
+有合适索引时，常见描述接近 `O(n log n)`；如果邻域搜索低效，则可能退化到 `O(n^2)`。
+
+## Common confusions
+
+- OPTICS 本身不一定直接给出一个最终聚类，除非再选择提取规则。
+- 可达距离不是与前一个点的普通欧氏距离。
+- 它仍需要密度参数，但不那么依赖单一最终 `epsilon` 切分。
+
+<ClusteringAlgorithmFigure lang="zh" scenarioId="graph-strip" />
+
+## Exercises
+
+1. 可达性图中的低谷暗示什么？
+2. 为什么密度变化时 OPTICS 有用？
+3. 排序建好后还需要做什么额外决定？

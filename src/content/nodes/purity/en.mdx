@@ -1,0 +1,138 @@
+---
+id: purity
+locale: en
+title: Purity
+summary: Score a clustering by giving each predicted cluster credit for its largest reference-label majority.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites: []
+next:
+  - rand-index
+createdAt: 2026-05-21
+updatedAt: 2026-05-21
+---
+
+import ClusteringMetricFigure from "../../../components/interactive/ClusteringMetricFigure";
+import ClusteringMetricLab from "../../../components/interactive/ClusteringMetricLab";
+import { clusteringFixture, purityFromExamples } from "../../../components/interactive/clusteringMetricsTrace";
+
+## Hook problem: clusters have no built-in names
+
+A clustering algorithm groups eight learning cards. A teacher also has an answer key: each card is really about `graph`, `tree`, or `hash`.
+
+The cluster names `A`, `B`, `C`, and `D` are arbitrary. Cluster `A` does not mean "graph" just because the algorithm printed `A`.
+
+<ClusteringMetricFigure lang="en" scenarioId="cluster-fixture" />
+
+## First naive idea: compare cluster names directly
+
+If we treated `A`, `B`, `C`, and `D` as class labels, the score would depend on random names chosen by the clustering algorithm.
+
+That is not a stable metric. Renaming cluster `A` to `Z` should not change the evaluation.
+
+## Core invention: each cluster gets its best label
+
+Purity asks each predicted cluster one local question:
+
+> Which reference label is the majority inside this cluster?
+
+Then it adds the majority counts and divides by the number of items.
+
+<ClusteringMetricFigure lang="en" scenarioId="purity-majority" />
+
+## Formal version
+
+Let `C_k` be predicted cluster `k`, `L_j` be reference label `j`, and `n` be the number of items.
+
+$$
+\text{Purity}=\frac{1}{n}\sum_k \max_j |C_k \cap L_j|
+$$
+
+Plainly: for each cluster, keep only its largest answer-key pile.
+
+For the fixture:
+
+$$
+\frac{2 + 1 + 2 + 2}{8}=\frac{7}{8}=0.875
+$$
+
+## Interactive preset lab
+
+Use the presets to compare the same clustering result under Purity, Rand Index, Adjusted Rand Index, and Fowlkes-Mallows Index.
+
+<ClusteringMetricLab client:load lang="en" />
+
+Static no-JS fallback:
+
+<table className="pnp-mini-table">
+  <caption>Purity cluster contributions</caption>
+  <thead>
+    <tr>
+      <th>Cluster</th>
+      <th>Majority label</th>
+      <th>Contribution</th>
+    </tr>
+  </thead>
+  <tbody>
+    {purityFromExamples(clusteringFixture).contributions.map((entry) => (
+      <tr key={entry.cluster}>
+        <th scope="row">{entry.cluster}</th>
+        <td>{entry.majorityLabel}</td>
+        <td>{entry.majorityCount}/{entry.size}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+## Where Purity breaks
+
+Purity rewards clean clusters, but it does **not** penalize splitting enough.
+
+If every item becomes its own singleton cluster, every cluster is perfectly pure, so Purity becomes `1.0`. That does not mean the clustering recovered the useful groups.
+
+<ClusteringMetricFigure lang="en" scenarioId="metric-contrast" />
+
+## Implementation sketch
+
+```ts
+function purity(items: { cluster: string; label: string }[]) {
+  const counts = new Map<string, Map<string, number>>();
+
+  for (const item of items) {
+    const row = counts.get(item.cluster) ?? new Map<string, number>();
+    row.set(item.label, (row.get(item.label) ?? 0) + 1);
+    counts.set(item.cluster, row);
+  }
+
+  let kept = 0;
+  for (const row of counts.values()) {
+    kept += Math.max(...row.values());
+  }
+
+  return items.length === 0 ? null : kept / items.length;
+}
+```
+
+## Complexity
+
+Building the cluster-by-label table takes `O(n)` time for `n` items. The extra space is `O(rc)` for `r` predicted clusters and `c` reference labels that actually appear.
+
+## Common confusions
+
+- Purity is an **external** clustering metric because it needs reference labels.
+- Purity is not accuracy: cluster names are arbitrary, so clusters are first matched locally to majority labels.
+- High Purity does not prove a good clustering when the algorithm over-splits.
+
+<ClusteringMetricFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. Which fixture cluster causes the `1/2` contribution?
+2. Why does singleton over-splitting get Purity `1.0`?
+3. What would happen to Purity if clusters `C` and `D` were merged?

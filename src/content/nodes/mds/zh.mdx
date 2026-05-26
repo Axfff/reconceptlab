@@ -1,0 +1,166 @@
+---
+id: mds
+locale: zh
+title: 多维尺度分析
+summary: 构造低维地图，让地图中的距离尽量模仿原始成对距离表。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - distances
+prerequisites:
+  - pca
+next:
+  - isomap
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import MdsFigure from "../../../components/interactive/MdsFigure";
+import MdsTraceLab from "../../../components/interactive/MdsTraceLab";
+import MdsResidualInspector from "../../../components/interactive/MdsResidualInspector";
+
+## 钩子问题：表格不是地图
+
+设想你在比较五个校园学习地点：Library（图书馆）、Lab（实验室）、Cafe（咖啡馆）、Dorm（宿舍）和 Gym（体育馆）。你没有可靠的原始坐标，只知道每两个地点作为学习地点有多不相似。
+
+电子表格能回答“Library 和 Gym 相差多远？”，但它不能给出地图那种一眼可见的空间判断。**多维尺度分析（Multidimensional Scaling，MDS）**要做的是：构造低维坐标，让地图上的可见距离尽量模仿这张表。
+
+<MdsFigure lang="zh" scenarioId="distance-table" />
+
+把这张表读作固定输入 $D$。表中条目非负。对角线为 0 或被忽略，因为一个项目到自己的距离为 0。表是对称的，所以 `Library -> Lab` 和 `Lab -> Library` 是同一个距离承诺。MDS 计算 stress 时，每个无序样本对只计一次，常用约定是 $i < j$。
+
+这里使用“不相似度（dissimilarity）”这个宽泛说法：数字可以来自评分、编辑距离、问卷回答、图距离，也可以是真实欧氏测量。MDS 仍然可以尝试画地图，但有些表无法在二维中完美放下。
+
+## 第一个朴素想法：先摆最近的点
+
+最近的一对很容易。把 `Library` 和 `Lab` 摆成约 `1.4` 个单位远。再把 `Cafe` 放在它们附近。痛点从 `Dorm` 和 `Gym` 加入时开始：每个新点都要同时满足好几个距离。
+
+<MdsTraceLab client:load lang="zh" mode="naive" />
+
+凭感觉画图没有一个统一规则来决定哪个距离承诺应该获胜。把 `Gym` 从 `Library` 拉远，它可能又离 `Dorm` 太近。移动 `Dorm`，其他几个距离也会跟着改变。
+
+<MdsFigure lang="zh" scenarioId="constraint-conflict" />
+
+注意图中的轴标签：`布局 x` 和 `布局 y`。这些是地图发明出来的坐标。它们不是“噪声水平”或“步行时间”这样的原始测量特征，除非输入表本来就来自这些量，并且解恰好与它们对齐。
+
+## 核心发明：把不匹配变成可计量的分数
+
+MDS 修补“凭感觉摆点”的办法，是让每个候选地图接受同一个评分。把项目 $i$ 放到低维点 $y_i$。然后把每对点在地图上的距离，与原始目标距离比较。
+
+<MdsFigure lang="zh" scenarioId="stress-bars" />
+
+本页固定使用这个带符号残差约定：
+
+$$
+r_{ij} = \delta_{ij} - d_{ij}
+$$
+
+正残差表示地图把这一对放得太远，也就是**被拉长（overstretched）**。负残差表示地图把这一对放得太近，也就是**被压缩（compressed）**。
+
+MDS 把这些不匹配累积成 **stress**：
+
+$$
+\text{stress}(Y) = \sum_{i<j}(\delta_{ij} - d_{ij})^2
+$$
+
+平方之后，正残差和负残差都会变成误差；大的扭曲也会比小扭曲付出更多代价。
+
+## 追踪实验室：从表格到较低 stress
+
+完整追踪使用同样的五个地点、同一张距离表和同一个残差约定。它不模拟随机优化；它只是比较一个粗糙布局和一个确定的较低 stress 布局，让评分思想保持可见。
+
+<MdsTraceLab client:load lang="zh" />
+
+较低 stress 布局并不等于“真实布局”。它只是对所选目标和固定表 $D$ 更好。换一个 stress 公式、输出维度或不相似度表，可能会偏好另一张地图。
+
+## 形式化版本
+
+令 $d_{ij}$ 表示项目 $i$ 与项目 $j$ 之间的原始目标不相似度。令 $Y$ 表示重建出的坐标表，$y_i$ 表示项目 $i$ 在地图中的点。
+
+<MdsFigure lang="zh" scenarioId="notation-pipeline" />
+
+同一对点在地图中的距离是：
+
+$$
+\delta_{ij} = \lVert y_i - y_j \rVert_2
+$$
+
+换句话说，$\delta_{ij}$ 是重建地图对样本对 $i, j$ 显示出来的距离。
+
+残差和 stress 是：
+
+$$
+r_{ij} = \delta_{ij} - d_{ij}
+$$
+
+$$
+\text{stress}(Y) = \sum_{i<j}(\delta_{ij} - d_{ij})^2
+$$
+
+MDS 寻找让总不匹配较小的坐标。经典 MDS（classical MDS）在距离满足欧氏假设时有闭式路线。度量 MDS（metric MDS）和非度量 MDS（nonmetric MDS）优化相关的 stress 思想。本节点只关注共同的“从距离重建地图”问题，不展开这些求解器推导。
+
+## 实现状态
+
+实现中携带的概念不多，但大多数都是成对的：
+
+| 状态 | 含义 | 为什么重要 |
+| --- | --- | --- |
+| 距离矩阵 $D$ | 固定输入表，保存 $d_{ij}$ | 每个候选地图都针对同一组承诺打分 |
+| 坐标 $Y$ | 当前低维点 $y_i$ | 这些是 MDS 会改变的变量 |
+| 地图距离 $\delta_{ij}$ | 当前地图内测得的距离 | 它们会与目标表比较 |
+| 残差 $r_{ij}$ | 带符号差值 $\delta_{ij} - d_{ij}$ | 显示哪些样本对被压缩或拉长 |
+| 总 stress | 残差平方和 | 给整个布局一个分数 |
+| 停止或检查 | 迭代上限、改进很小或人工检查 | 低 stress 之后仍要看残差 |
+
+```ts
+read or compute the pairwise distance matrix D;
+choose output dimension k and initialize coordinates Y;
+repeat: evaluate pair residuals and reduce stress;
+inspect the largest remaining distortions;
+```
+
+## 正确性直觉：有用的地图仍会留下痕迹
+
+不变量很简单：不要移动目标。每个候选布局都用同一张固定 $D$ 打分。如果一个布局比另一个布局 stress 更低，它就更符合这个目标。
+
+这句话有明确边界。它不证明当前显示的布局是全局最优。它不恢复原始坐标轴。它也不承诺在距离表有噪声、不是欧氏距离，或二维承载不了全部结构时仍能零失真。
+
+<MdsResidualInspector client:load lang="zh" />
+
+所以残差不是事后调试，而是这个概念的一部分。地图之所以有用，是因为它能总结许多成对承诺；剩余残差则告诉你，这个总结在哪里弯曲了事实。
+
+## 代价：每个点都要和每个点说话
+
+有 $n$ 个项目时，完整距离表大约有 $n(n-1)/2$ 个有用条目。存储这张表是 $O(n^2)$。如果输出维度是 $k$，一次完整 stress 评估要计算每个地图距离，因此代价是 $O(n^2 k)$。
+
+<MdsFigure lang="zh" scenarioId="cost" />
+
+如果优化器进行了 $T$ 次评估或更新，就要预期这类成对工作会反复出现。经典 MDS 还可能需要特征分解，那是另一种通常比一次 stress 扫描更重的代价。
+
+## 常见混淆
+
+| 混淆 | 修补 |
+| --- | --- |
+| “坐标轴一定表示原始特征。” | MDS 轴是布局坐标。它们服务于距离重建，不保证有特征解释。 |
+| “低 stress 就是零 stress。” | 低 stress 表示累计不匹配较小。一些样本对残差仍可能明显存在。 |
+| “MDS 就是 PCA。” | PCA 从坐标出发，保留高方差方向。MDS 从成对距离出发，保留这些距离。 |
+| “所有 MDS 变体只是同一个求解器。” | 经典、度量、非度量 MDS 在求解路径或距离解释上不同，但共享“从距离画地图”的动机。 |
+
+## 图中的连接
+
+PCA 是有用的对照：它有原始坐标，并询问哪些方向保留方差。MDS 可以在坐标已经消失或不适合使用时开始，只要还有有意义的成对距离表。
+
+Isomap 复用 MDS 的布局步骤。它的修补发生在上游：在画地图之前，先用邻居图上的最短路距离替代原始直线距离。
+
+<DimensionalityReductionFigure lang="zh" scenarioId="graph-strip" />
+
+## 练习
+
+1. 在校园距离表中，为什么只需要计算一次 `Library - Lab`，不用再计算 `Lab - Library`？
+2. 在残差检查器里选一个负残差。为了让这一对不那么被压缩，你会在地图上做什么移动？哪一对可能因此变差？
+3. 为什么较低 stress 的 MDS 布局不能证明两个显示轴就是有意义的原始特征？

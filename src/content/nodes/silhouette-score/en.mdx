@@ -1,0 +1,119 @@
+---
+id: silhouette-score
+locale: en
+title: Silhouette Score
+summary: Evaluate a clustering without labels by comparing each point's own-cluster distance with its nearest other-cluster distance.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites: []
+next:
+  - calinski-harabasz-index
+  - davies-bouldin-index
+  - dunn-index
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import InternalClusteringMetricFigure from "../../../components/interactive/InternalClusteringMetricFigure";
+import InternalClusteringMetricLab from "../../../components/interactive/InternalClusteringMetricLab";
+import { internalClusteringFixture, silhouetteFromPoints } from "../../../components/interactive/internalClusteringMetricsTrace";
+
+## Hook problem: no answer key this time
+
+The external clustering metrics compare predicted clusters with reference labels. Silhouette score is different: it is an **internal** clustering metric.
+
+It only sees point positions, distances, and cluster assignments. It does not know whether a point is really `graph`, `tree`, or `hash`.
+
+<InternalClusteringMetricFigure lang="en" scenarioId="geometry-fixture" />
+
+## First naive idea: check only closeness inside each cluster
+
+A cluster feels good when its points are close together. But that is only half of the question.
+
+If a point is also close to a different cluster, it may be sitting on a boundary or assigned to the wrong group.
+
+## Core invention: compare inside distance with nearest outside distance
+
+For one point `i`, define:
+
+- `a(i)`: average distance from `i` to the other points in its own cluster.
+- `b(i)`: the smallest average distance from `i` to any other cluster.
+
+<InternalClusteringMetricFigure lang="en" scenarioId="silhouette-point" />
+
+## Formal version
+
+The silhouette value for point `i` is:
+
+$$
+s(i)=\frac{b(i)-a(i)}{\max(a(i), b(i))}
+$$
+
+The clustering's silhouette score is the average of `s(i)` over all points.
+
+Values near `1` mean a point is much closer to its own cluster. Values near `0` mean it sits between clusters. Negative values mean the nearest other cluster is closer than its assigned cluster.
+
+For singleton clusters, this implementation assigns `s(i)=0` so a one-point cluster is not rewarded as perfectly separated.
+
+## Interactive preset lab
+
+<InternalClusteringMetricLab client:load lang="en" />
+
+Static no-JS fallback:
+
+<table className="pnp-mini-table">
+  <caption>Fixture silhouette values</caption>
+  <thead>
+    <tr>
+      <th>Point</th>
+      <th>Cluster</th>
+      <th>a(i)</th>
+      <th>b(i)</th>
+      <th>s(i)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {silhouetteFromPoints(internalClusteringFixture).points.map((point) => (
+      <tr key={point.id}>
+        <th scope="row">{point.id}</th>
+        <td>{point.cluster}</td>
+        <td>{point.ownAverage.toFixed(3)}</td>
+        <td>{point.nearestOtherAverage.toFixed(3)}</td>
+        <td>{point.value.toFixed(3)}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+## Implementation sketch
+
+```ts
+function silhouettePoint(a: number, b: number) {
+  const denominator = Math.max(a, b);
+  return denominator === 0 ? 0 : (b - a) / denominator;
+}
+```
+
+## Complexity
+
+The direct implementation needs pairwise distances, so it is usually `O(n^2)` time for `n` points. It stores only summaries plus point scores unless you cache the full distance matrix.
+
+## Common confusions
+
+- Silhouette is internal: it does not use reference labels.
+- Higher is better, but it is still distance-dependent.
+- A negative point score is a warning that another cluster is closer on average.
+
+<InternalClusteringMetricFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. Why does silhouette need both `a(i)` and `b(i)`?
+2. What does a score near `0` suggest about a point?
+3. Why should singleton clusters not automatically get score `1`?

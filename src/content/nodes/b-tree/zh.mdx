@@ -1,0 +1,151 @@
+---
+id: b-tree
+locale: zh
+title: B 树
+summary: 用每个节点保存多个有序键的多路平衡树，让排序数据的查找保持很浅。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: data-structure
+tags:
+  - data-structures
+  - trees
+  - storage
+  - indexing
+prerequisites: []
+next:
+  - b-plus-tree
+createdAt: 2026-05-19
+updatedAt: 2026-05-19
+---
+
+import BTreeNodeFigure from "../../../components/interactive/BTreeNodeFigure";
+import BTreeSearchFigure from "../../../components/interactive/BTreeSearchFigure";
+import BTreeSplitDemo from "../../../components/interactive/BTreeSplitDemo";
+
+## 问题入口
+
+想象一个很大的有序目录存放在许多页上。页/块（page/block）是一批会一起读入的存储内容；一次读页通常比在内存里比较几个键贵得多。目标不只是“少比较几个键”，而是“少碰几个页”。
+
+<BTreeNodeFigure lang="zh" variant="page-read" />
+
+## 第一个朴素想法：有序数组
+
+有序数组（sorted array）把值按递增顺序放在一条连续序列里。二分查找很好用，但插入很痛苦：为了插入一个新键，后面的记录可能要跨过许多页整体后移。
+
+<BTreeNodeFigure lang="zh" variant="sorted-array-pain" />
+
+## 第二个朴素想法：二叉搜索树
+
+二叉搜索树（binary search tree）每个节点保存一个键，较小键在左边，较大键在右边。它让局部插入比数组容易，但如果每个节点都近似一次读页，高路径会带来很多页读取。
+
+<BTreeNodeFigure lang="zh" variant="bst-pain" />
+
+## 核心发明
+
+B 树是多路平衡搜索树（multiway balanced search tree）：一个节点保存多个有序键，并用这些键分隔多个子指针（child pointer）范围。本页采用的 B 树约定是：键（key）携带记录/值，或者指向记录/值的指针；即使键在内部节点中也是如此。所以查找到内部键 `10` 就是成功命中，而不只是经过一个分隔符。
+
+<BTreeNodeFigure lang="zh" variant="node-anatomy" />
+
+## 查找过程
+
+查找会读取一个节点，在节点内部比较，然后要么在匹配键处停止，要么下降到唯一可能包含该键的子范围。
+
+<BTreeSearchFigure client:load lang="zh" />
+
+试试 `17`、内部命中 `10` 和不存在的 `13`。注意内部命中只读一页就返回，因为在这个 B 树约定中，内部键也是真正携带记录的键。
+
+## 节点满了怎么办
+
+最简单的插入情况，是叶子还有空间时，在页内做一次有序插入。
+
+<BTreeNodeFigure lang="zh" variant="easy-insert" />
+
+满节点的修复方式是分裂（split）：把过满页面分成两部分，并把中间键提升到父节点。
+
+<BTreeSplitDemo client:load lang="zh" mode="root" />
+
+## 树如何长高
+
+如果根节点已满，分裂根会创建一个新根，让树向上增加一层。这就是高度平衡（height-balanced）的树怎样长高，同时仍让所有叶子处在同一深度。
+
+<BTreeNodeFigure lang="zh" variant="root-growth" />
+
+## 最小度数
+
+本页使用 CLRS 风格的最小度数（minimum degree）`$t$`。当 `$t = 2$` 时，非根节点至少有 `1` 个键，最多有 `3` 个键。一般来说，若非根节点有 `$k$` 个键：
+
+$$
+t - 1 \le k \le 2t - 1
+$$
+
+有 `$k$` 个键的内部节点有 `$k + 1$` 个孩子，所以最大孩子数是 `$2t$`。有些资料用“阶”表示最大孩子数；本页只使用最小度数这一套约定。
+
+<BTreeNodeFigure lang="zh" variant="minimum-degree" />
+
+## 实现草图
+
+```ts
+function search(node: BTreeNode, key: number): SearchResult {
+  let i = firstIndexWhere(node.keys[i] >= key);
+  if (node.keys[i] === key) return { found: true, record: node.records[i] };
+  if (node.leaf) return { found: false };
+  return search(node.children[i], key);
+}
+
+function insert(root: BTreeNode, key: number) {
+  if (root.isFull()) root = splitRoot(root);
+  insertNonFull(root, key);
+}
+
+function insertNonFull(node: BTreeNode, key: number) {
+  if (node.leaf) return insertIntoSortedLeaf(node, key);
+  let i = childIndexFor(node, key);
+  if (node.children[i].isFull()) splitChild(node, i);
+  i = childIndexFor(node, key);
+  insertNonFull(node.children[i], key);
+}
+```
+
+常见的“下降前先分裂”写法，会保证进入的孩子不是满节点。在固定序列 `[10, 20, 5, 6, 12, 30, 7, 17]` 中，插入 `17` 会先分裂满孩子 `[12, 20, 30]`，提升 `20`，再下降到 `[12]`。
+
+<BTreeSplitDemo client:load lang="zh" mode="non-root" />
+
+## 正确性直觉
+
+每个分隔键都维护一个范围承诺：第 `i` 个孩子中的键，落在相邻分隔键之间。分裂满节点时，左半部分仍小于提升键，右半部分仍大于提升键，所以搜索范围没有被破坏。分裂也不会只在一侧制造更深的叶子，因此所有叶子仍在同一深度。
+
+<BTreeNodeFigure lang="zh" variant="invariants" />
+
+## 复杂度
+
+设 `$n$` 是存储的键数，`$h$` 是从根到叶子的页层数。B 树高度随着大扇出呈对数增长：
+
+$$
+h = O(\log_t n)
+$$
+
+这不表示 CPU 比较消失了；一个节点内部可能要比较多个键。存储层面的收益是读取的页层数少得多。
+
+<BTreeNodeFigure lang="zh" variant="complexity" />
+
+## 常见混淆
+
+<BTreeNodeFigure lang="zh" variant="confusions" />
+
+删除算法故意不放在本页，因为借用、合并等情况值得单独讲。本节点聚焦查找、插入、分裂修复，以及这些操作保护的不变量。
+
+## 图中的连接
+
+B+ 树保留适合页读取的浅层搜索形状，但改变值的存放位置：内部键变成只导航的分隔键，所有记录移动到叶子中，叶子再通过链接支持范围扫描。
+
+<BTreeNodeFigure lang="zh" variant="connection" />
+
+## 练习
+
+<BTreeNodeFigure lang="zh" variant="exercise" />
+
+1. 在根 `[10, 20]` 中，`13` 属于哪个子范围？
+2. 当 `t = 2` 时，`[5, 6, 7, 8]` 在分裂前是否合法？
+3. `[5, 10, 20]` 在插入 `6` 前分裂时，哪个键会被提升？
+4. 为什么 B 树查找内部键 `10` 可以不走到叶子？

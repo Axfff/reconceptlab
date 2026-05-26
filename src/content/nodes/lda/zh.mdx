@@ -1,0 +1,76 @@
+---
+id: lda
+locale: zh
+title: 线性判别分析
+summary: 利用标签寻找投影方向，让类别均值分开，同时让每个类别内部保持紧凑。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - classification
+prerequisites:
+  - pca
+next:
+  - qda
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import DimensionalityReductionLab from "../../../components/interactive/DimensionalityReductionLab";
+
+## 钩子问题：最大方差不一定带来最好分离
+
+PCA 忽略标签。如果最大扩散方向发生在两个类别内部，PCA 可能保留一个看起来很活跃、但无法区分类别的方向。
+
+线性判别分析（Linear Discriminant Analysis，**LDA**）改变问题：使用已知标签来寻找能分开类别的投影。
+
+<DimensionalityReductionFigure lang="zh" scenarioId="lda-qda-boundary" />
+
+## 第一个朴素想法：分类前先做 PCA
+
+PCA 可以帮助压缩，但它可能丢掉一个低方差、却能完美区分类别的方向。监督式投影必须知道类别是什么。
+
+## 核心发明：类间散度对类内散度
+
+对投影方向 `w`，LDA 希望类均值彼此远离，同时同一类内部的点保持接近。
+
+$$
+\max_w \frac{w^T S_B w}{w^T S_W w}
+$$
+
+这里 `S_B` 表示类间散度，`S_W` 表示类内散度。
+
+## 追踪实验室
+
+<DimensionalityReductionLab client:load lang="zh" initialMethod="lda" />
+
+## 实现草图
+
+```ts
+compute class means and the global mean;
+build between-class scatter S_B;
+build within-class scatter S_W;
+solve for directions that maximize the scatter ratio;
+```
+
+## 正确性直觉和限制
+
+当类别大致呈高斯形状，并且协方差相近时，LDA 很有用。它最多能降到 `类别数 - 1` 个判别维度，因为独立的类别均值分离方向只有这么多。
+
+## 常见混淆
+
+- 这里的 LDA 是 Linear Discriminant Analysis，不是 Latent Dirichlet Allocation。
+- LDA 是监督式方法；标签是输入的一部分。
+- LDA 是线性的。弯曲类别边界会引出 QDA。
+
+<DimensionalityReductionFigure lang="zh" scenarioId="graph-strip" />
+
+## 练习
+
+1. 为什么 PCA 可能为分类保留错误方向？
+2. 分母 `w^T S_W w` 惩罚什么？
+3. 为什么两个类别最多只能产生一个 LDA 方向？

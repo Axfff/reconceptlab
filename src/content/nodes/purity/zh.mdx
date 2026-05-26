@@ -1,0 +1,138 @@
+---
+id: purity
+locale: zh
+title: 纯度（Purity）
+summary: 让每个预测簇只按其中最多的参考标签得分，快速评价聚类是否“干净”。
+status: draft
+translationStatus: needs-review
+difficulty: beginner
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites: []
+next:
+  - rand-index
+createdAt: 2026-05-21
+updatedAt: 2026-05-21
+---
+
+import ClusteringMetricFigure from "../../../components/interactive/ClusteringMetricFigure";
+import ClusteringMetricLab from "../../../components/interactive/ClusteringMetricLab";
+import { clusteringFixture, purityFromExamples } from "../../../components/interactive/clusteringMetricsTrace";
+
+## 问题入口：簇名本身没有含义
+
+聚类算法把 8 张学习卡片分成若干簇。老师手里还有参考答案：每张卡片真实属于 `graph`、`tree` 或 `hash`。
+
+算法输出的簇名 `A`、`B`、`C`、`D` 是任意的。不能因为名字叫 `A`，就把它当成某个真实类别。
+
+<ClusteringMetricFigure lang="zh" scenarioId="cluster-fixture" />
+
+## 第一个朴素想法：直接比较簇名
+
+如果把 `A`、`B`、`C`、`D` 当作类别标签，分数会依赖算法随便取的名字。
+
+这不合理。把簇 `A` 改名成 `Z`，聚类质量不应该改变。
+
+## 核心发明：每个簇找自己的多数标签
+
+纯度（Purity）对每个预测簇问一个局部问题：
+
+> 这个簇里最多的是哪一种参考标签？
+
+然后把这些多数计数加起来，再除以样本总数。
+
+<ClusteringMetricFigure lang="zh" scenarioId="purity-majority" />
+
+## 形式化版本
+
+设 `C_k` 是第 `k` 个预测簇，`L_j` 是第 `j` 个参考标签，`n` 是样本数。
+
+$$
+\text{Purity}=\frac{1}{n}\sum_k \max_j |C_k \cap L_j|
+$$
+
+直观读法：每个簇只保留其中最大的那堆参考标签。
+
+在固定样本中：
+
+$$
+\frac{2 + 1 + 2 + 2}{8}=\frac{7}{8}=0.875
+$$
+
+## 交互实验台
+
+切换预设，比较纯度、Rand 指数、调整 Rand 指数和 Fowlkes-Mallows 指数的反应。
+
+<ClusteringMetricLab client:load lang="zh" />
+
+无脚本静态表：
+
+<table className="pnp-mini-table">
+  <caption>纯度的簇贡献</caption>
+  <thead>
+    <tr>
+      <th>簇</th>
+      <th>多数标签</th>
+      <th>贡献</th>
+    </tr>
+  </thead>
+  <tbody>
+    {purityFromExamples(clusteringFixture).contributions.map((entry) => (
+      <tr key={entry.cluster}>
+        <th scope="row">{entry.cluster}</th>
+        <td>{entry.majorityLabel}</td>
+        <td>{entry.majorityCount}/{entry.size}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+## 纯度的问题：过度拆分也会很高
+
+纯度奖励“干净”的簇，但它对拆得太碎的情况惩罚不够。
+
+如果每个样本都单独成簇，那么每个簇都是纯的，纯度会变成 `1.0`。这并不代表算法找回了有用的组。
+
+<ClusteringMetricFigure lang="zh" scenarioId="metric-contrast" />
+
+## 实现草图
+
+```ts
+function purity(items: { cluster: string; label: string }[]) {
+  const counts = new Map<string, Map<string, number>>();
+
+  for (const item of items) {
+    const row = counts.get(item.cluster) ?? new Map<string, number>();
+    row.set(item.label, (row.get(item.label) ?? 0) + 1);
+    counts.set(item.cluster, row);
+  }
+
+  let kept = 0;
+  for (const row of counts.values()) {
+    kept += Math.max(...row.values());
+  }
+
+  return items.length === 0 ? null : kept / items.length;
+}
+```
+
+## 复杂度
+
+构建“簇 × 标签”的计数表需要 `O(n)` 时间。额外空间是 `O(rc)`，其中 `r` 是实际出现的预测簇数，`c` 是实际出现的参考标签数。
+
+## 常见误区
+
+- 纯度是外部聚类指标，因为它需要参考标签。
+- 纯度不是准确率：簇名是任意的，每个簇要先找自己的多数标签。
+- 高纯度不一定代表好聚类，尤其是过度拆分时。
+
+<ClusteringMetricFigure lang="zh" scenarioId="graph-strip" />
+
+## 练习
+
+1. 固定样本中，哪个簇只贡献了 `1/2`？
+2. 为什么单点过度拆分能得到纯度 `1.0`？
+3. 如果把簇 `C` 和 `D` 合并，纯度会怎样变化？

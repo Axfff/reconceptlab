@@ -1,0 +1,154 @@
+---
+id: dfa
+locale: zh
+title: 确定性有限自动机（DFA）
+summary: 用有限个状态和每个输入符号唯一确定的转移，识别简单的字符串模式。
+status: draft
+translationStatus: needs-review
+difficulty: beginner
+conceptType: concept
+tags:
+  - theory-of-computing
+  - automata
+  - regular-languages
+prerequisites: []
+next: []
+createdAt: 2026-05-25
+updatedAt: 2026-05-25
+---
+
+import DfaScenarioFigure from "../../../components/interactive/DfaScenarioFigure";
+import DfaSimulator from "../../../components/interactive/DfaSimulator";
+
+## 钩子问题
+
+想象一个注册表单，只接受一个非常小的“类似邮箱”的模式：一个或多个本地字符，一个 `@`，一个或多个域名字符，一个 `.`，最后是一个或多个后缀字符。
+
+在这个教学模型里，字母和数字算作 `char`，`@` 算作 `at`，`.` 算作 `dot`，其他符号都算作 `other`。本地部分不允许出现点。它不是现实中的 RFC 邮箱校验，只是用来学习有限记忆的小语言。
+
+<DfaScenarioFigure lang="zh" scenarioId="hook-categories" />
+
+## 第一个朴素想法
+
+第一次扫描时，可以用几个标志位（flag）：`seenAt`、`seenDot`、`hasLocal`、`hasDomain`、`hasSuffix`。这种代码可以写对，所以它是一个公平的起点。
+
+痛点在于：正确性藏在布尔组合里。`hasLocal && seenAt && !hasDomain` 的意思是“下一个有效符号必须是域名字符”。`hasLocal && seenAt && hasDomain && seenDot && hasSuffix` 的意思是“如果输入现在结束，就接受”。标志位并不错误，只是这些含义没有名字。
+
+<DfaScenarioFigure lang="zh" scenarioId="flag-combinations" />
+
+## 它在哪里变脆
+
+几个小错误会暴露隐藏情况。`ana@.ai` 已经有本地部分和 `@`，但在任何域名字符之前读到了 `dot`。`ana@@cs.ai` 读到了第二个 `@`。`ana@cs.` 到达了点，却没有后缀字符。
+
+确定性有限自动机（deterministic finite automaton, DFA）会把每个脆弱情况显式写出来：读完 `ana@` 后，机器处于 `need-domain`；如果此时读到 `dot`，唯一的下一状态就是 `dead`。
+
+<DfaScenarioFigure lang="zh" scenarioId="missing-domain-before-dot" />
+
+## 核心发明
+
+DFA 把分散的标志位替换成一个当前状态（state）。状态是对“已经读过的前缀”的命名摘要：哪些事实还重要，接下来还必须发生什么。
+
+在这个玩具验证器里，`need-local` 表示“还没有本地字符”。`in-domain` 表示“已经有本地部分、恰好一个 `@`、并且域名已经开始，所以现在允许点”。`dead` 表示已经发生致命错误，这个输入无法修复。
+
+<DfaScenarioFigure lang="zh" scenarioId="state-meaning-cards" />
+
+## 可视化模型
+
+整台机器可以写成一张表：每个状态对每一类输入符号，都恰好有一个下一状态。这就是“确定性”的含义。
+
+例如，$\delta(\text{in-local}, @) = \text{need-domain}$，而 $\delta(\text{in-local}, \text{dot}) = \text{dead}$。这张转移表是完整的：没有哪个情况被留给隐式默认值。
+
+<DfaScenarioFigure lang="zh" scenarioId="transition-table" />
+
+## 互动演示
+
+试着逐步运行 `ana@cs.ai`、`ana@.ai` 和 `ana@cs.ai.`。请同时看文字状态和颜色：处于 `in-suffix` 只说明“如果输入现在结束就接受”。
+
+<DfaSimulator client:load lang="zh" />
+
+## 形式化版本
+
+有了轨迹直觉之后，数学对象很紧凑：
+
+$$
+M = (Q, \Sigma, \delta, q_0, F)
+$$
+
+这里 `Q` 是有限状态集合，`Σ` 是有限输入字母表，`δ` 是转移函数（transition function），`q0` 是起始状态，`F` 是接受状态集合。
+
+在本节点里，`Q` 是七个命名状态，`Σ = { char, at, dot, other }`，`q0 = need-local`，`F = { in-suffix }`。函数 `δ` 正是上面的转移表。
+
+<DfaScenarioFigure lang="zh" scenarioId="five-tuple-callout" />
+
+## 实现草图
+
+实现方式和可见轨迹一一对应：分类一个字符，查询一个表格单元，替换当前状态，最后在循环结束后检查是否接受。
+
+```ts
+type DfaSymbol = "char" | "at" | "dot" | "other";
+type DfaState =
+  | "need-local"
+  | "in-local"
+  | "need-domain"
+  | "in-domain"
+  | "need-suffix"
+  | "in-suffix"
+  | "dead";
+
+function classify(input: string): DfaSymbol {
+  if (/^[A-Za-z0-9]$/.test(input)) return "char";
+  if (input === "@") return "at";
+  if (input === ".") return "dot";
+  return "other";
+}
+
+function accepts(input: string) {
+  let state: DfaState = "need-local";
+  for (const char of input) {
+    const symbol = classify(char);
+    state = transitionTable[state][symbol];
+  }
+  return state === "in-suffix";
+}
+```
+
+<DfaScenarioFigure lang="zh" scenarioId="implementation-map" />
+
+## 前缀不变量
+
+每读完一个前缀，当前状态都会概括后续计算需要知道的一切。它不记住字面字符串 `ana@cs`，而是记住相关阶段：本地部分已经完成，`@` 已经完成，域名已经开始，点还没有出现。
+
+核心不变量是：如果两个前缀落在同一个状态，那么接上任何相同的剩余后缀，它们都会得到相同的接受/拒绝答案。
+
+<DfaScenarioFigure lang="zh" scenarioId="prefix-ledger" />
+
+## 复杂度
+
+对于长度为 `n` 的输入，DFA 每个字符执行一次转移，所以运行时间是 $O(n)$。转移表有 $|Q||\Sigma|$ 个条目；这里是 `7 * 4`。除了输入本身，工作记忆是 $O(1)$，因为机器只保存当前状态。
+
+<DfaScenarioFigure lang="zh" scenarioId="transition-cost" />
+
+## 常见误解
+
+接受是根据最终状态判断的。运行 `ana@cs.ai.` 时，前缀 `ana@cs.ai` 会到达 `in-suffix`，当时它是接受状态。但输入还剩一个 `.`。机器必须继续读取它，而从 `in-suffix` 读到 `dot` 会进入 `dead`，所以整个字符串被拒绝。
+
+<DfaScenarioFigure lang="zh" scenarioId="accept-only-at-end" />
+
+死状态不是惩罚，而是记忆捷径。一旦发生致命错误，剩下的输入无法让这个玩具模式重新合法，所以每类符号都会自环回到 `dead`。
+
+<DfaScenarioFigure lang="zh" scenarioId="dead-state-loop" />
+
+## 图谱连接
+
+图的基础和 DFA 图都使用圆点与箭头，但它们建模的对象不同。普通图的边可以表示对象之间的任意关系。DFA 的箭头是读取输入时，在有限记忆状态之间发生的带标签转移。
+
+后续节点可以从这里继续到 DFA 设计、正则语言、NFA 和抽水引理的边界。本页只聚焦确定性有限记忆和按输入生成轨迹的接受语义。
+
+## 练习
+
+1. 在查看轨迹前，预测 `a@b.c` 的最终状态。
+2. 为什么 `ana.@cs.ai` 会在看到 `@` 之前就进入 `dead`？
+3. 哪个表格条目拒绝了 `ana@cs!`？
+4. 如果允许本地部分出现点，需要修改什么？
+
+<DfaScenarioFigure lang="zh" scenarioId="prediction-prompts" />

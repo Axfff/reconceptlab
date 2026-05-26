@@ -1,0 +1,71 @@
+---
+id: sigmoid-kernel
+locale: en
+title: Sigmoid Kernel
+summary: Squash an affine dot product with tanh, while remembering that this kernel is parameter-sensitive and not always valid.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - kernels
+  - similarity
+prerequisites:
+  - kernel
+  - linear-kernel
+next: []
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import KernelFunctionFigure from "../../../components/interactive/KernelFunctionFigure";
+import KernelSimilarityLab from "../../../components/interactive/KernelSimilarityLab";
+
+## Hook problem: dot products can grow without a bound
+
+The linear and polynomial kernels can produce large positive or negative values. One tempting repair is to squash the dot-product score through a nonlinear function.
+
+The **sigmoid kernel** uses `tanh`, similar in shape to an old neural-network activation.
+
+<KernelFunctionFigure lang="en" scenarioId="sigmoid-saturation" />
+
+## First naive idea: squash and call it a kernel
+
+Squashing feels attractive because the output is bounded. But a bounded similarity is not automatically a valid kernel. Kernel methods need the pairwise matrix to behave like feature-space inner products.
+
+## Formal version
+
+$$
+K(x,z)=\tanh(\gamma x^Tz+c)
+$$
+
+The parameter `gamma` controls the slope of the dot-product score. The parameter `c` shifts the score before `tanh`. The output lies between `-1` and `1`.
+
+## Interactive comparison
+
+<KernelSimilarityLab client:load lang="en" initialKernel="sigmoid" />
+
+## Implementation sketch
+
+```ts
+function sigmoidKernel(dot: number, gamma = 0.5, c = 1) {
+  return Math.tanh(gamma * dot + c);
+}
+```
+
+## Validity caveat
+
+Unlike the linear, polynomial with standard parameters, and RBF kernels, the sigmoid kernel is not positive semidefinite for every parameter choice and data set. Treat it as a specialized option: verify that your library accepts the parameters and that validation performance justifies it.
+
+## Common confusions
+
+- Sigmoid kernel is not the same thing as logistic regression.
+- Bounded output does not guarantee a valid kernel.
+- Saturation can make several large dot products look almost identical.
+
+## Exercises
+
+1. What role does `tanh` play?
+2. Why is the sigmoid kernel more delicate than RBF?
+3. What does saturation hide?

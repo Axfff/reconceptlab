@@ -1,0 +1,90 @@
+---
+id: calinski-harabasz-index
+locale: en
+title: Calinski-Harabasz Index
+summary: Score clustering by comparing between-cluster centroid scatter with within-cluster scatter.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites:
+  - silhouette-score
+next:
+  - davies-bouldin-index
+  - dunn-index
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import InternalClusteringMetricFigure from "../../../components/interactive/InternalClusteringMetricFigure";
+import InternalClusteringMetricLab from "../../../components/interactive/InternalClusteringMetricLab";
+
+## Hook problem: summarize the whole geometry
+
+Silhouette score looks point by point. Calinski-Harabasz Index asks for a coarser summary:
+
+> Are cluster centers far apart compared with how spread out their own points are?
+
+It is still an internal clustering metric. It uses geometry and cluster assignments, not reference labels.
+
+<InternalClusteringMetricFigure lang="en" scenarioId="ch-scatter" />
+
+## First naive idea: use only within-cluster spread
+
+Small within-cluster spread is good, but it is not enough.
+
+Three tiny clusters sitting almost on top of each other should not receive the same judgment as three tiny clusters separated across the plane.
+
+## Core invention: between scatter divided by within scatter
+
+CH uses two sums:
+
+- `W_k`: within-cluster scatter, the sum of squared distances from each point to its own cluster centroid.
+- `B_k`: between-cluster scatter, the cluster-size-weighted squared distance from each cluster centroid to the global centroid.
+
+## Formal version
+
+For `n` points and `k` clusters:
+
+$$
+CH=\frac{B_k/(k-1)}{W_k/(n-k)}
+$$
+
+Plainly: the numerator rewards cluster centers that are far apart; the denominator penalizes points that wander far from their own centers.
+
+Higher CH is better. The score is unavailable when `k < 2`, when `n <= k`, or when within-cluster scatter is zero.
+
+## Interactive preset lab
+
+<InternalClusteringMetricLab client:load lang="en" />
+
+## Implementation sketch
+
+```ts
+function calinskiHarabasz(between: number, within: number, n: number, k: number) {
+  if (k < 2 || n <= k || within === 0) return null;
+  return (between / (k - 1)) / (within / (n - k));
+}
+```
+
+## Complexity
+
+After assignments are known, computing centroids and squared-distance sums is `O(n)` for fixed-dimensional points. If dimensions are variable, include the dimension factor.
+
+## Common confusions
+
+- CH is higher-better, unlike Davies-Bouldin.
+- CH is not an external score; it does not know the true labels.
+- Squared distances make far-off points matter more than small local noise.
+
+<InternalClusteringMetricFigure lang="en" scenarioId="metric-contrast" />
+
+## Exercises
+
+1. Which part of the formula grows when cluster centroids move farther apart?
+2. Which part grows when each cluster gets stretched?
+3. Why is `n <= k` a degenerate case?

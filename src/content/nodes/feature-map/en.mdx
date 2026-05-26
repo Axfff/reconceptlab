@@ -1,0 +1,87 @@
+---
+id: feature-map
+locale: en
+title: Feature Map
+summary: Rewrite raw inputs into representation coordinates so a simple comparison can see the pattern you care about.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - kernels
+  - representation
+prerequisites: []
+next:
+  - kernel
+  - linear-kernel
+  - polynomial-kernel
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import KernelFunctionFigure from "../../../components/interactive/KernelFunctionFigure";
+
+## Hook problem: the raw coordinates may hide the pattern
+
+Imagine a model sees only two coordinates, `x1` and `x2`. If the useful pattern depends on squares or interactions, a straight comparison in the original space can miss it.
+
+The first repair is not a kernel yet. It is a **feature map**: a rule for rewriting each input into coordinates where the pattern is easier to compare.
+
+<KernelFunctionFigure lang="en" scenarioId="feature-map-lift" />
+
+## First naive idea: keep the input as-is
+
+The identity map is the simplest feature map:
+
+$$
+\phi(x)=x
+$$
+
+That is useful when the original features already expose the structure. It becomes painful when "similar" means "has a similar product," "has a similar square," or "belongs near a curved boundary."
+
+## Core invention: choose representation coordinates
+
+A feature map is a function:
+
+$$
+\phi: X \to F
+$$
+
+It sends an input from the original space `X` into a feature space `F`. For a two-coordinate point, a quadratic map might be:
+
+$$
+\phi(x_1,x_2)=(x_1^2,\sqrt{2}x_1x_2,x_2^2)
+$$
+
+The new coordinates are not magic. They are the measurements we decided would be useful: two square terms and one interaction term.
+
+## Implementation sketch
+
+```ts
+function quadraticFeatureMap(point: { x: number; y: number }) {
+  return [point.x ** 2, Math.SQRT2 * point.x * point.y, point.y ** 2];
+}
+```
+
+The same map must be applied to every point. If `A` and `B` are compared after mapping, both go through `phi` first.
+
+## Why kernels appear next
+
+Feature maps are easy to understand when the mapped vector is small. But some useful maps are very large, and the RBF kernel behaves as if it came from an infinite feature space.
+
+<KernelFunctionFigure lang="en" scenarioId="graph-strip" />
+
+The next idea is a shortcut: compute the mapped inner product directly, without always building `phi(x)`.
+
+## Common confusions
+
+- A feature map is the representation rule; a kernel is a pairwise comparison shortcut.
+- A feature map is chosen for a task. It is not automatically better because it has more coordinates.
+- The original input can be a perfectly valid feature map when the simple geometry already works.
+
+## Exercises
+
+1. What new coordinate does the term `x1 x2` create?
+2. Why must every point use the same feature map?
+3. When would the identity map be enough?

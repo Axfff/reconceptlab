@@ -1,0 +1,76 @@
+---
+id: t-sne
+locale: zh
+title: t-SNE
+summary: 用低维重尾相似度修补 SNE 的拥挤地图，让非邻居更容易分开。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - visualization
+prerequisites:
+  - sne
+next:
+  - umap
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import DimensionalityReductionLab from "../../../components/interactive/DimensionalityReductionLab";
+
+## 钩子问题：太多邻居挤在中心
+
+SNE 试图保留局部概率，但二维空间没有足够面积，让所有中等距离点都保持中等距离。点可能会挤到中间。
+
+**t-SNE** 保留邻居概率思想，并改变低维相似度，让非邻居能够移动得更远。
+
+<DimensionalityReductionFigure lang="zh" scenarioId="sne-neighbors" />
+
+## 第一个朴素想法：两个空间都用同样的高斯形状
+
+高斯尾部很快变得极小。在低维地图中，这会让许多中等距离关系难以同时表示，最终造成拥挤。
+
+## 核心发明：低维使用重尾相似度
+
+t-SNE 在地图中使用 Student-t 风格的相似度：
+
+$$
+q_{ij} \propto (1+\lVert y_i-y_j\rVert^2)^{-1}
+$$
+
+较重的尾部让低维远点仍有足够概率质量，使优化器能把非邻居推开。
+
+## 追踪实验室
+
+<DimensionalityReductionLab client:load lang="zh" initialMethod="t-sne" />
+
+## 实现草图
+
+```ts
+compute symmetric high-dimensional neighbor probabilities;
+initialize a two-dimensional map;
+compute Student-t low-dimensional similarities;
+optimize KL divergence with attraction and repulsion;
+```
+
+## 解读警告
+
+t-SNE 很适合局部探索，但不是聚类验证指标。簇面积、间隔大小和坐标轴方向都会随着 perplexity、初始化、学习率和随机种子改变。
+
+## 常见混淆
+
+- 近邻关系比远距离更可靠。
+- 更大的视觉间隔不一定表示更大的原始距离。
+- 重复运行可能产生不同图形。
+
+<DimensionalityReductionFigure lang="zh" scenarioId="graph-strip" />
+
+## 练习
+
+1. Student-t 重尾修补了什么问题？
+2. 为什么 t-SNE 图不能自动证明簇存在？
+3. 从 t-SNE 中最安全能读出的视觉关系是什么？

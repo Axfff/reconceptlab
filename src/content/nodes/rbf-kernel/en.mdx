@@ -1,0 +1,151 @@
+---
+id: rbf-kernel
+locale: en
+title: RBF Kernel
+summary: Turn distance into local similarity so nearby points matter much more than faraway points.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - kernels
+  - similarity
+prerequisites:
+  - kernel
+next:
+  - sigmoid-kernel
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import KernelFunctionFigure from "../../../components/interactive/KernelFunctionFigure";
+import KernelSimilarityLab from "../../../components/interactive/KernelSimilarityLab";
+
+## Hook problem: the local neighbor should matter
+
+Imagine predicting the price behavior of a new house after every feature has already been normalized onto comparable scales. Use two features for the story: normalized size and normalized neighborhood quality.
+
+The new house is `A=(1,1)`. A nearby previous example is `B=(2,1)`. A far previous example is `E=(4,4)`. If the task is local prediction, `B` should influence `A` much more than `E`, because `B` is the nearby house in feature space.
+
+<KernelFunctionFigure lang="en" scenarioId="rbf-dot-product-pain" />
+
+## Naive idea: use the dot product anyway
+
+A kernel often feels like an inner-product shortcut, so the first attempt is to reuse the dot product $x^Tz$.
+
+That fails for this local-neighborhood question. From `A=(1,1)`, the dot product gives `A -> B` a score of `3`, but gives `A -> E` a score of `8`. The far same-direction house wins because dot product rewards magnitude and origin-based alignment. It is not asking, "Which house is close to A?"
+
+| Pair from A | Dot product $x^Tz$ | Squared distance $\lVert x-z\rVert^2$ | RBF at $\gamma=0.5$ |
+| --- | ---: | ---: | ---: |
+| `A -> B` | `3` | `1` | `0.607` |
+| `A -> E` | `8` | `18` | `0.000123` |
+
+The table shows the pain: dot product ranks the far point higher, while distance says the local example is much closer.
+
+## Core invention: exponential distance decay
+
+The smallest useful repair is to stop comparing direction from the origin and compare squared Euclidean distance instead. Distance `0` should mean maximum similarity. Larger distances should fade smoothly toward `0`.
+
+The RBF kernel does exactly that: square the distance, multiply by a negative decay rate, then pass it through exponential decay.
+
+<KernelFunctionFigure lang="en" scenarioId="rbf-decay-curve" />
+
+## Formal definition
+
+$$
+K(x,z)=\exp(-\gamma \lVert x-z\rVert^2)
+$$
+
+Here $x$ and $z$ are two input vectors. The term $\lVert x-z\rVert^2$ is their squared Euclidean distance. The parameter $\gamma$ is a positive decay rate. The function $\exp$ maps exponent `0` to `1`; negative exponents produce values between `0` and `1`.
+
+For $\gamma>0$ and finite real inputs, RBF values are in $(0,1]$. A self-match has distance `0`, so $K(x,x)=\exp(0)=1$. Any nonzero distance creates a negative exponent, so the value is less than `1` but still positive.
+
+A common bandwidth convention writes $\gamma = 1 / (2\sigma^2)$. Larger $\gamma$ means a smaller effective neighborhood. Larger $\sigma$ means smaller $\gamma$, so the neighborhood gets wider.
+
+<KernelFunctionFigure lang="en" scenarioId="rbf-neighborhood" />
+
+## Interactive comparison
+
+Now compare RBF against linear, polynomial, and sigmoid kernels on the same shared points. Change the anchor, then change only the RBF gamma selector. The non-RBF scores keep their fixed parameters so the bandwidth effect stays isolated.
+
+<KernelSimilarityLab client:load lang="en" initialKernel="rbf" />
+
+For anchor `A`, the RBF pattern is:
+
+| Gamma | `A -> B`, distance squared `1` | `A -> C`, distance squared `5` | `A -> D`, distance squared `10` |
+| ---: | ---: | ---: | ---: |
+| `0.1` | `0.905` | `0.607` | `0.368` |
+| `0.5` | `0.607` | `0.082` | `0.007` |
+| `1.0` | `0.368` | `0.007` | `0.000045` |
+
+Increasing `gamma` does not move the points. It only makes similarity decay faster with the same distances.
+
+## Implementation sketch
+
+The inputs `x` and `z` must be equal-length numeric vectors. Let `d` be that shared number of features. One direct TypeScript implementation is:
+
+```ts
+function rbfKernel(x: number[], z: number[], gamma: number) {
+  if (x.length !== z.length) {
+    throw new Error("RBF kernel expects equal-length vectors.");
+  }
+
+  const d = x.length;
+  let squaredDistance = 0;
+
+  for (let i = 0; i < d; i += 1) {
+    squaredDistance += (x[i] - z[i]) ** 2;
+  }
+
+  return Math.exp(-gamma * squaredDistance);
+}
+```
+
+For `A=(1,1)` and `B=(2,1)`, the computation is small enough to see by hand:
+
+| Feature index | `x_i` from A | `z_i` from B | `(x_i-z_i)^2` | Running sum |
+| ---: | ---: | ---: | ---: | ---: |
+| `0` | `1` | `2` | `1` | `1` |
+| `1` | `1` | `1` | `0` | `1` |
+
+So $\lVert A-B\rVert^2=1$, and with $\gamma=0.5$, $K(A,B)=\exp(-0.5)\approx0.607$.
+
+## Behavior, invariant, and complexity
+
+The key invariant is locality: with positive `gamma`, increasing squared distance never increases RBF similarity.
+
+| Case | What happens | Why it matters |
+| --- | --- | --- |
+| Self-match | $K(x,x)=1$ | A point is maximally similar to itself. |
+| Near point | Value stays close to `1` | Local examples keep influence. |
+| Far point | Value fades toward `0` | Distant examples become almost irrelevant. |
+| Gamma equals `0` | Every pair maps to `1` | Not local: distance stops mattering. |
+| Gamma below `0` | Farther points can exceed `1` | Not the RBF setting for this node. |
+| Small positive gamma | Same distance decays slowly | Neighborhood is wide. |
+| Large positive gamma | Same distance decays quickly | Neighborhood is tiny. |
+
+If each vector has `d` numeric features, one RBF evaluation costs $O(d)$: the loop reads each coordinate once. Comparing one query against `n` stored points costs $O(nd)$.
+
+## Common confusions
+
+| Mistake | Repair |
+| --- | --- |
+| "RBF is angle similarity." | RBF is local distance similarity. Same direction is not enough. |
+| "Larger gamma is always better." | Larger gamma can make neighborhoods too tiny and over-local. |
+| "Smaller gamma is always smoother and safer." | Smaller gamma can make too many points look alike. |
+| "Bandwidth sigma moves in the same direction as gamma." | Under $\gamma = 1 / (2\sigma^2)$, larger $\gamma$ means smaller $\sigma$ and a smaller neighborhood. |
+| "Feature scaling is optional." | One large-scale feature can dominate squared distance. Normalize or scale meaningful features first. |
+| "I need the infinite feature map proof now." | RBF can be described that way, but this node only needs the distance-decay behavior. |
+
+## Graph connections and practice
+
+RBF comes after the general [kernel](/en/nodes/kernel/) idea because it is a named kernel function. It contrasts with [linear kernel](/en/nodes/linear-kernel/) because linear similarity rewards origin-based alignment, while RBF rewards local nearness. It also contrasts with [polynomial kernel](/en/nodes/polynomial-kernel/): polynomial kernels add finite-degree interactions, while RBF behaves like a much richer local neighborhood rule. The next nearby named kernel is [sigmoid kernel](/en/nodes/sigmoid-kernel/), which returns to a squashed dot product and has more delicate validity conditions.
+
+<KernelFunctionFigure lang="en" scenarioId="graph-strip" />
+
+Prediction questions:
+
+1. From anchor `A`, which shared point has the highest RBF score besides `A` itself?
+2. What happens to `A -> C` as `gamma` increases from `0.1` to `1.0`?
+3. Why can the dot product rank `E=(4,4)` above `B=(2,1)` even though `B` is the local neighbor?

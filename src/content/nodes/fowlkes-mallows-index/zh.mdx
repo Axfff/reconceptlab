@@ -1,0 +1,116 @@
+---
+id: fowlkes-mallows-index
+locale: zh
+title: Fowlkes-Mallows 指数
+summary: 用成对精确率和成对召回率的几何平均来评价聚类。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites:
+  - rand-index
+next:
+  - adjusted-rand-index
+createdAt: 2026-05-21
+updatedAt: 2026-05-21
+---
+
+import ClusteringMetricFigure from "../../../components/interactive/ClusteringMetricFigure";
+import ClusteringMetricLab from "../../../components/interactive/ClusteringMetricLab";
+
+## 问题入口：关注“被放在一起”的样本对
+
+Rand 指数包含 `TN`：参考标签不同、预测簇也不同的样本对。
+
+有时我们更关心聚类的正向决定：“这两个样本应该放在一起。”
+
+Fowlkes-Mallows 指数（FMI）只使用 `TP`、`FP` 和 `FN`。
+
+<ClusteringMetricFigure lang="zh" scenarioId="fmi-geometric" />
+
+## 第一个朴素想法：只看成对精确率
+
+成对精确率（pair precision）是：
+
+$$
+\frac{TP}{TP+FP}
+$$
+
+它衡量“被放在同一簇的样本对有多可信”。但它不关心那些本该同标签、却被拆开的样本对。
+
+## 核心发明：平衡成对精确率和成对召回率
+
+成对召回率（pair recall）是：
+
+$$
+\frac{TP}{TP+FN}
+$$
+
+FMI 用几何平均合并二者：
+
+$$
+FMI=\sqrt{\frac{TP}{TP+FP}\cdot\frac{TP}{TP+FN}}
+$$
+
+等价的计数形式是：
+
+$$
+FMI=\frac{TP}{\sqrt{(TP+FP)(TP+FN)}}
+$$
+
+固定样本中：
+
+$$
+FMI=\frac{3}{\sqrt{(3+1)(3+4)}}=\frac{3}{\sqrt{28}}\approx 0.567
+$$
+
+## 交互实验台
+
+<ClusteringMetricLab client:load lang="zh" />
+
+## 为什么没有 `TN`
+
+`TN` 表示两个样本在参考标签和聚类中都被分开。它对 RI 是一种一致，但不能说明“被放在一起”的预测簇是否有用。
+
+因此 FMI 聚焦在同簇样本对这个正向决定上。
+
+<ClusteringMetricFigure lang="zh" scenarioId="rand-counts" />
+
+## 边界情况
+
+如果 `TP + FP = 0`，说明没有任何预测同簇样本对，成对精确率不可用。
+
+如果 `TP + FN = 0`，说明参考答案中没有同标签样本对，成对召回率不可用。
+
+这两种情况下，FMI 应渲染为 `不可用`，不要显示 `NaN`。
+
+## 实现草图
+
+```ts
+function fowlkesMallows(tp: number, fp: number, fn: number) {
+  const denominator = Math.sqrt((tp + fp) * (tp + fn));
+  return denominator === 0 ? null : tp / denominator;
+}
+```
+
+## 复杂度
+
+已知成对计数后，FMI 是 `O(1)`。直接构建成对计数是 `O(n^2)`，也可以从列联表推导。
+
+## 常见误区
+
+- FMI 不是分类任务里的 F1，虽然二者都在平衡两个正向指标。
+- FMI 不像 ARI 那样调整机会一致性。
+- 把所有样本合并到一个簇会有高成对召回率，但成对精确率会变弱。
+
+<ClusteringMetricFigure lang="zh" scenarioId="metric-contrast" />
+
+## 练习
+
+1. 为什么 FMI 不使用 `TN`？
+2. 单点过度拆分预设下，FMI 会怎样？
+3. 哪种错误会伤害成对精确率：`FP` 还是 `FN`？

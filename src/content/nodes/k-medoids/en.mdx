@@ -1,0 +1,82 @@
+---
+id: k-medoids
+locale: en
+title: K-Medoids Clustering
+summary: Cluster around representative data points instead of averaged centroids, making center choice more robust to outliers.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - clustering
+  - algorithms
+prerequisites:
+  - k-means
+next:
+  - dbscan
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import ClusteringAlgorithmFigure from "../../../components/interactive/ClusteringAlgorithmFigure";
+import ClusteringAlgorithmLab from "../../../components/interactive/ClusteringAlgorithmLab";
+
+## Hook problem: the mean can drift into empty space
+
+K-Means uses an average point as a center. That is efficient, but a single faraway point can pull the mean toward a place that is not representative of any actual example.
+
+K-Medoids asks for a stricter kind of center: choose real data points.
+
+<ClusteringAlgorithmFigure lang="en" scenarioId="medoid-robustness" />
+
+## First naive idea: keep K-Means and ignore the outlier
+
+Ignoring the outlier by hand is not an algorithm. If the data changes, the rule changes too.
+
+The smallest repair is to change what a center is allowed to be.
+
+## Core invention: medoids are examples
+
+A **medoid** is a selected data point whose cluster members are close to it. K-Medoids usually minimizes a sum of distances:
+
+$$
+\sum_{i=1}^{n} d(x_i, m_{c_i})
+$$
+
+Here `m_c` is the medoid for cluster `c`. Because medoids must be real examples, the chosen center is inspectable and less easily dragged by an extreme coordinate.
+
+## Interactive trace lab
+
+<ClusteringAlgorithmLab client:load lang="en" initialAlgorithm="k-medoids" />
+
+## Implementation sketch
+
+```ts
+choose k initial medoids;
+repeat {
+  assign each point to its nearest medoid;
+  try swapping a medoid with a non-medoid point;
+  keep the swap if total distance decreases;
+}
+```
+
+## Correctness intuition and cost
+
+The swap version is a local search: every accepted swap lowers the chosen distance objective, so the process eventually stops when no tested swap helps.
+
+It is usually more expensive than K-Means because swap candidates require many distance evaluations. The benefit is that it works with any distance function and keeps centers as real examples.
+
+## Common confusions
+
+- A medoid is not the same as a centroid.
+- K-Medoids still needs `k` in advance.
+- It is more robust to outliers, but not immune to bad `k` or bad distance choices.
+
+<ClusteringAlgorithmFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. Why might a real example be easier to explain than a mean vector?
+2. Which step makes K-Medoids slower than K-Means?
+3. When would a non-Euclidean distance make K-Medoids attractive?

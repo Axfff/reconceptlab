@@ -1,0 +1,76 @@
+---
+id: lda
+locale: en
+title: Linear Discriminant Analysis
+summary: Use labels to project data toward directions that separate class means while keeping each class compact.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - classification
+prerequisites:
+  - pca
+next:
+  - qda
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import DimensionalityReductionLab from "../../../components/interactive/DimensionalityReductionLab";
+
+## Hook problem: biggest variance is not always best separation
+
+PCA ignores labels. If the largest spread runs inside both classes, PCA may keep a direction that looks energetic but does not separate the labels.
+
+Linear Discriminant Analysis, or **LDA**, changes the question: use known labels to find a projection that separates classes.
+
+<DimensionalityReductionFigure lang="en" scenarioId="lda-qda-boundary" />
+
+## First naive idea: use PCA before classification
+
+PCA can help compression, but it may discard a low-variance direction that perfectly distinguishes classes. Supervised projection needs to know what the classes are.
+
+## Core invention: between-class versus within-class scatter
+
+For a projection direction `w`, LDA wants class means to move apart while points in the same class stay close.
+
+$$
+\max_w \frac{w^T S_B w}{w^T S_W w}
+$$
+
+Here `S_B` measures between-class scatter and `S_W` measures within-class scatter.
+
+## Trace lab
+
+<DimensionalityReductionLab client:load lang="en" initialMethod="lda" />
+
+## Implementation sketch
+
+```ts
+compute class means and the global mean;
+build between-class scatter S_B;
+build within-class scatter S_W;
+solve for directions that maximize the scatter ratio;
+```
+
+## Correctness intuition and limits
+
+LDA is useful when classes are roughly Gaussian-shaped with similar covariance. It can reduce to at most `numberOfClasses - 1` discriminant dimensions, because only that many independent class-mean separations exist.
+
+## Common confusions
+
+- LDA here means Linear Discriminant Analysis, not Latent Dirichlet Allocation.
+- LDA is supervised; labels are part of the input.
+- LDA is linear. Curved class boundaries motivate QDA.
+
+<DimensionalityReductionFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. Why can PCA keep the wrong direction for classification?
+2. What does the denominator `w^T S_W w` penalize?
+3. Why can two classes produce only one LDA direction?

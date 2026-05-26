@@ -1,0 +1,86 @@
+---
+id: davies-bouldin-index
+locale: en
+title: Davies-Bouldin Index
+summary: Score clustering by averaging each cluster's worst spread-versus-separation rival.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites:
+  - silhouette-score
+next:
+  - dunn-index
+  - calinski-harabasz-index
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import InternalClusteringMetricFigure from "../../../components/interactive/InternalClusteringMetricFigure";
+import InternalClusteringMetricLab from "../../../components/interactive/InternalClusteringMetricLab";
+
+## Hook problem: one bad neighbor can matter
+
+A clustering can look acceptable on average while one cluster has a dangerously similar neighbor.
+
+Davies-Bouldin Index asks each cluster: "Which other cluster is my worst rival?"
+
+<InternalClusteringMetricFigure lang="en" scenarioId="db-worst-rival" />
+
+## First naive idea: inspect only cluster spread
+
+Average distance to the centroid tells you whether a cluster is compact.
+
+But a spread of `0.8` is fine if the nearest centroid is `8` units away, and risky if the nearest centroid is `1` unit away.
+
+## Core invention: spread relative to centroid separation
+
+For cluster `i`:
+
+- `S_i` is the average distance from its points to centroid `i`.
+- `M_ij` is the distance between centroids `i` and `j`.
+- `R_ij=(S_i+S_j)/M_ij` is the similarity between two clusters.
+
+DB keeps the worst `R_ij` for each cluster, then averages those worst cases.
+
+## Formal version
+
+$$
+DB=\frac{1}{k}\sum_i \max_{j\ne i} \frac{S_i+S_j}{M_{ij}}
+$$
+
+Lower DB is better. Small values mean every cluster's worst rival is still separated compared with their combined spread.
+
+## Interactive preset lab
+
+<InternalClusteringMetricLab client:load lang="en" />
+
+## Implementation sketch
+
+```ts
+function dbClusterScore(scatterI: number, scatterJ: number, centroidDistance: number) {
+  return centroidDistance === 0 ? null : (scatterI + scatterJ) / centroidDistance;
+}
+```
+
+## Complexity
+
+Computing scatter is `O(n)` after centroids are known. Comparing all centroid pairs is `O(k^2)`, where `k` is the number of clusters.
+
+## Common confusions
+
+- Lower DB is better.
+- DB uses centroids and average scatter, so it may miss non-convex cluster shapes.
+- The `max` is deliberate: each cluster is judged by its worst neighbor.
+
+<InternalClusteringMetricFigure lang="en" scenarioId="metric-contrast" />
+
+## Exercises
+
+1. Why does the formula add `S_i + S_j`?
+2. Why does a small centroid distance increase DB?
+3. What does the `max` operation protect against hiding?

@@ -1,0 +1,74 @@
+---
+id: umap
+locale: en
+title: UMAP
+summary: Build a fuzzy neighbor graph and optimize a low-dimensional graph with similar local membership strengths.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - visualization
+prerequisites:
+  - isomap
+  - t-sne
+next: []
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import DimensionalityReductionLab from "../../../components/interactive/DimensionalityReductionLab";
+
+## Hook problem: keep local structure, scale to practical data
+
+t-SNE makes useful local maps, but learners still need a way to think about neighbor strength, attraction, repulsion, and interpretation limits.
+
+Uniform Manifold Approximation and Projection, or **UMAP**, starts from a weighted neighbor graph and optimizes a low-dimensional graph that behaves similarly.
+
+<DimensionalityReductionFigure lang="en" scenarioId="graph-strip" />
+
+## First naive idea: keep only hard nearest-neighbor edges
+
+A yes-or-no neighbor graph throws away useful uncertainty. Some neighbors are very trustworthy; others are barely inside the local radius.
+
+## Core invention: fuzzy graph matching
+
+UMAP builds a **fuzzy neighbor graph**: each local edge has a membership strength. The layout then pulls strong-neighbor pairs together and pushes sampled non-neighbor pairs apart.
+
+The first version to remember is:
+
+$$
+\text{low-dimensional graph} \approx \text{high-dimensional fuzzy neighbor graph}
+$$
+
+## Trace lab
+
+<DimensionalityReductionLab client:load lang="en" initialMethod="umap" />
+
+## Implementation sketch
+
+```ts
+find approximate nearest neighbors;
+convert local distances into weighted edges;
+initialize low-dimensional points;
+optimize attraction for edges and repulsion for sampled non-edges;
+```
+
+## Interpretation cautions
+
+UMAP axes usually have no direct feature meaning. Local neighborhoods are more trustworthy than global area, orientation, or empty space. Parameters such as `n_neighbors` and `min_dist` change what the map emphasizes.
+
+## Common confusions
+
+- UMAP is not "t-SNE but always better"; it makes different modeling choices.
+- Strong visual islands need domain checks or metrics before becoming claims.
+- A fuzzy graph stores degrees of local membership, not only binary edges.
+
+## Exercises
+
+1. Why does UMAP keep weighted neighbor strengths?
+2. What do attraction and repulsion do in the layout?
+3. Which parts of a UMAP plot are risky to over-interpret?

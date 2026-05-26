@@ -1,0 +1,166 @@
+---
+id: mds
+locale: en
+title: Multidimensional Scaling
+summary: Build a low-dimensional map whose distances imitate an original pairwise-distance table.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - distances
+prerequisites:
+  - pca
+next:
+  - isomap
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import MdsFigure from "../../../components/interactive/MdsFigure";
+import MdsTraceLab from "../../../components/interactive/MdsTraceLab";
+import MdsResidualInspector from "../../../components/interactive/MdsResidualInspector";
+
+## Hook problem: a table is not a map
+
+Imagine you are comparing five campus study spots: `Library`, `Lab`, `Cafe`, `Dorm`, and `Gym`. You do not have useful original coordinates. You only have a pairwise dissimilarity table: each number says how different two places feel for studying.
+
+A spreadsheet can answer "how far is Library from Gym?" but it cannot give the quick visual judgment a map gives. **Multidimensional Scaling**, or **MDS**, asks for low-dimensional coordinates whose visible distances imitate that table.
+
+<MdsFigure lang="en" scenarioId="distance-table" />
+
+Read the table as fixed input $D$. Its entries are nonnegative. The diagonal is zero or ignored because an item is distance zero from itself. The table is symmetric, so `Library -> Lab` and `Lab -> Library` are the same promise. When MDS computes stress, each unordered pair is counted once, using the convention $i < j$.
+
+The word "dissimilarity" is intentionally broad: the numbers may come from ratings, edit distances, survey responses, graph distances, or true Euclidean measurements. MDS can still try to draw a map, but some tables cannot fit perfectly in two dimensions.
+
+## First naive idea: place the nearest pairs
+
+The closest pair is easy. Put `Library` and `Lab` about `1.4` units apart. Then add `Cafe` near both of them. The pain starts when `Dorm` and `Gym` arrive: each new point must satisfy several distances at once.
+
+<MdsTraceLab client:load lang="en" mode="naive" />
+
+A drawing made by eye has no single way to decide which promise should win. Pull `Gym` away from `Library`, and it may become too close to `Dorm`. Nudge `Dorm`, and several other distances change.
+
+<MdsFigure lang="en" scenarioId="constraint-conflict" />
+
+Notice the axis labels: `layout x` and `layout y`. These are coordinates invented for the map. They are not original measured features like "noise level" or "walking time" unless the input table was built that way and the solution happens to align with them.
+
+## Core invention: make mismatch measurable
+
+MDS repairs the by-eye problem by giving every candidate map the same score. Place each item $i$ at a low-dimensional point $y_i$. Then compare the map's distance for every pair with the original target distance.
+
+<MdsFigure lang="en" scenarioId="stress-bars" />
+
+The signed residual convention on this page is:
+
+$$
+r_{ij} = \delta_{ij} - d_{ij}
+$$
+
+Positive residual means the map puts the pair too far apart, or **overstretches** it. Negative residual means the map puts the pair too close together, or **compresses** it.
+
+MDS accumulates those mismatches as **stress**:
+
+$$
+\text{stress}(Y) = \sum_{i<j}(\delta_{ij} - d_{ij})^2
+$$
+
+Squaring makes positive and negative residuals both count as error. It also makes large distortions hurt more than small ones.
+
+## Trace lab: from table to lower stress
+
+The full trace uses the same five places, the same distance table, and the same residual convention. It does not simulate random optimization; it simply compares a rough layout with a deterministic lower-stress layout so the scoring idea stays visible.
+
+<MdsTraceLab client:load lang="en" />
+
+The lower-stress layout is not declared "true." It is only better under the chosen objective and fixed table $D$. A different stress formula, output dimension, or dissimilarity table could prefer a different map.
+
+## Formal version
+
+Let $d_{ij}$ be the original target dissimilarity between items $i$ and $j$. Let $Y$ be the reconstructed coordinate table, and let $y_i$ be the map point for item $i$.
+
+<MdsFigure lang="en" scenarioId="notation-pipeline" />
+
+The map distance for the same pair is:
+
+$$
+\delta_{ij} = \lVert y_i - y_j \rVert_2
+$$
+
+In words, $\delta_{ij}$ is the distance the reconstructed map shows for pair $i, j$.
+
+The residual and stress are:
+
+$$
+r_{ij} = \delta_{ij} - d_{ij}
+$$
+
+$$
+\text{stress}(Y) = \sum_{i<j}(\delta_{ij} - d_{ij})^2
+$$
+
+MDS searches for coordinates where this total mismatch is small. Classical MDS has a closed-form route when the distances fit the Euclidean assumptions. Metric and nonmetric MDS optimize related stress ideas. This node focuses on the shared distance-preserving question, not those solver derivations.
+
+## Implementation state
+
+An implementation carries only a few ideas, but most of them are pairwise:
+
+| State | What it means | Why it matters |
+| --- | --- | --- |
+| Distance matrix $D$ | The fixed input table of $d_{ij}$ values | Every candidate map is judged against the same promises |
+| Coordinates $Y$ | Current low-dimensional points $y_i$ | These are the variables MDS changes |
+| Map distances $\delta_{ij}$ | Distances measured inside the current map | They are compared with the target table |
+| Residuals $r_{ij}$ | Signed differences $\delta_{ij} - d_{ij}$ | They show which pairs are compressed or overstretched |
+| Total stress | Sum of squared residuals | It gives one score for the whole layout |
+| Stopping or inspection | Iteration limit, small improvement, or human review | Low stress still needs residual inspection |
+
+```ts
+read or compute the pairwise distance matrix D;
+choose output dimension k and initialize coordinates Y;
+repeat: evaluate pair residuals and reduce stress;
+inspect the largest remaining distortions;
+```
+
+## Correctness intuition: useful maps still have scars
+
+The invariant is simple: do not let the target move. The same fixed $D$ scores every candidate layout. If one layout has lower stress than another, it fits this objective better.
+
+That statement is intentionally limited. It does not prove the displayed layout is globally optimal. It does not recover the original axes. It does not promise zero distortion when the table is noisy, non-Euclidean, or too rich for the chosen dimension.
+
+<MdsResidualInspector client:load lang="en" />
+
+This is why residuals are part of the lesson, not a debugging afterthought. A map can be helpful exactly because it summarizes many pairwise promises, but the remaining residuals say where the summary bends the truth.
+
+## Cost: every point talks to every other point
+
+With $n$ items, a full distance table has about $n(n-1)/2$ useful entries. Storing the table is $O(n^2)$. If the output has $k$ dimensions, a full stress evaluation computes every map distance, so it costs $O(n^2 k)$.
+
+<MdsFigure lang="en" scenarioId="cost" />
+
+If an optimizer performs $T$ evaluations or updates, expect the pairwise part to appear repeatedly. Classical MDS can also require eigendecomposition, which is a different and often heavier cost than one stress scan.
+
+## Common confusions
+
+| Confusion | Repair |
+| --- | --- |
+| "The axes must mean original features." | MDS axes are layout coordinates. They are useful for distance reconstruction, not guaranteed feature interpretation. |
+| "Low stress means zero stress." | Low stress means smaller accumulated mismatch. Some pair residuals may remain visible. |
+| "MDS is just PCA." | PCA starts from coordinates and preserves high-variance directions. MDS starts from pairwise distances and preserves those distances. |
+| "All MDS variants are the same solver." | Classical, metric, and nonmetric MDS differ in solver path or distance interpretation, but share the map-from-distances motivation. |
+
+## Connections in the graph
+
+PCA is the useful contrast: it has original coordinates and asks which directions keep variance. MDS can begin after coordinates are gone or unhelpful, as long as a meaningful pairwise table remains.
+
+Isomap reuses the MDS layout step. Its repair is upstream: before drawing the map, it replaces raw straight-line distances with shortest-path distances on a neighbor graph.
+
+<DimensionalityReductionFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. In the campus table, why is it enough to count `Library - Lab` once instead of also counting `Lab - Library`?
+2. Pick one negative residual in the inspector. What physical action on the map would make that pair less compressed, and which other pair might get worse?
+3. Why does a lower-stress MDS layout not prove that the two displayed axes are meaningful original features?

@@ -1,0 +1,124 @@
+---
+id: adjusted-rand-index
+locale: en
+title: Adjusted Rand Index
+summary: Adjust Rand-style pair agreement by subtracting the agreement expected from the cluster and class margins.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites:
+  - rand-index
+next:
+  - fowlkes-mallows-index
+createdAt: 2026-05-21
+updatedAt: 2026-05-21
+---
+
+import ClusteringMetricFigure from "../../../components/interactive/ClusteringMetricFigure";
+import ClusteringMetricLab from "../../../components/interactive/ClusteringMetricLab";
+
+## Hook problem: raw agreement is not enough
+
+Rand Index for the fixture is high:
+
+$$
+RI=\frac{23}{28}\approx 0.821
+$$
+
+But many of those agreements are easy `TN` pairs: two items have different reference labels and are also in different predicted clusters.
+
+Adjusted Rand Index asks: how much better is the observed pair agreement than what these cluster sizes and class sizes could produce by chance?
+
+<ClusteringMetricFigure lang="en" scenarioId="ari-adjustment" />
+
+## First naive idea: trust RI directly
+
+Raw RI is useful, but it does not know whether `23/28` is impressive for this margin shape.
+
+Two random partitions with the same cluster sizes and class sizes can still agree on some same-cluster pairs.
+
+## Core invention: subtract expected agreement
+
+Build the contingency table between predicted clusters and reference labels.
+
+Let:
+
+- `S = sum_ij binom(n_ij, 2)`: observed pairs that are same cluster and same label.
+- `A = sum_i binom(a_i, 2)`: same-cluster pairs from predicted cluster sizes.
+- `B = sum_j binom(b_j, 2)`: same-label pairs from reference class sizes.
+- `T = binom(n, 2)`: all unordered pairs.
+- `E = AB / T`: expected same-same pairs from the margins.
+- `M = (A + B) / 2`: the maximum normalizing term.
+
+## Formal version
+
+$$
+ARI=\frac{S-E}{M-E}
+$$
+
+For the fixture:
+
+$$
+S=3,\quad A=4,\quad B=7,\quad T=28,\quad E=1,\quad M=5.5
+$$
+
+So:
+
+$$
+ARI=\frac{3-1}{5.5-1}=\frac{2}{4.5}\approx 0.444
+$$
+
+## Interactive preset lab
+
+<ClusteringMetricLab client:load lang="en" />
+
+## Interpretation
+
+- `1` means the two partitions match perfectly, up to renamed clusters.
+- Around `0` means the same-cluster agreement is about what the margins would produce by chance.
+- Negative values mean less same-cluster agreement than expected by chance.
+
+<ClusteringMetricFigure lang="en" scenarioId="metric-contrast" />
+
+## Degenerate branch
+
+If `M - E = 0`, the normalized formula has no room to move. In implementation, return `1` when the partitions are perfectly identical under that degenerate shape; otherwise return `null` rather than rendering `NaN`.
+
+## Implementation sketch
+
+```ts
+function choose2(x: number) {
+  return x < 2 ? 0 : (x * (x - 1)) / 2;
+}
+
+function adjustedRand(S: number, A: number, B: number, n: number) {
+  const T = choose2(n);
+  const E = T === 0 ? 0 : (A * B) / T;
+  const M = (A + B) / 2;
+  const denominator = M - E;
+  return denominator === 0 ? null : (S - E) / denominator;
+}
+```
+
+## Complexity
+
+After building the contingency table, ARI is `O(rc)` over table cells and margins. Building that table from `n` items is `O(n)`.
+
+## Common confusions
+
+- ARI is not just RI with a different denominator; it subtracts chance-level same-same agreement.
+- ARI can be negative.
+- ARI still compares external reference labels, so it is not an internal clustering objective.
+
+<ClusteringMetricFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. Which term is the observed same-same count?
+2. Why does the singleton over-split preset have Purity `1.0` but ARI `0`?
+3. What does a negative ARI mean in words?

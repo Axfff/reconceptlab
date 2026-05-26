@@ -1,0 +1,84 @@
+---
+id: hdbscan
+locale: zh
+title: HDBSCAN
+summary: 构建密度层级，并选择在多个密度层级中保持稳定的簇。
+status: draft
+translationStatus: needs-review
+difficulty: advanced
+conceptType: algorithm
+tags:
+  - machine-learning
+  - clustering
+  - algorithms
+prerequisites:
+  - dbscan
+  - optics
+next: []
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import ClusteringAlgorithmFigure from "../../../components/interactive/ClusteringAlgorithmFigure";
+import ClusteringAlgorithmLab from "../../../components/interactive/ClusteringAlgorithmLab";
+
+## Hook problem：不同区域密度不同
+
+DBSCAN 要求一个密度尺度。OPTICS 暴露多个可能尺度。**HDBSCAN** 进一步询问：哪些簇会随着密度要求变化而持续存在？
+
+关键动作是：不再把每个切分都当成同等可信。
+
+<ClusteringAlgorithmFigure lang="zh" scenarioId="density-hierarchy" />
+
+## First naive idea：凭眼睛选最好看的密度切分
+
+手动挑一个切分很脆弱。短命分支可能在某个尺度看起来真实，但到下一个尺度马上消失。
+
+HDBSCAN 用跨层级稳定性来修补这个问题。
+
+## Core invention：压缩密度树
+
+HDBSCAN 把距离转成互可达距离（mutual-reachability distance），建立层级，压缩太小的分支，再选择稳定簇。
+
+直觉是：
+
+$$
+\text{stable cluster} \approx \text{许多点在许多密度层级中保持在一起}
+$$
+
+短命分支会被视为噪声或子结构。
+
+## Interactive trace lab
+
+<ClusteringAlgorithmLab client:load lang="zh" initialAlgorithm="hdbscan" />
+
+## Implementation sketch
+
+```ts
+compute core distances;
+build mutual-reachability graph;
+build a minimum spanning tree;
+condense the hierarchy by minimum cluster size;
+select stable branches as clusters;
+```
+
+## Correctness intuition and cost
+
+层级记录了密度要求变严格时簇如何分裂。稳定性避免某个簇只因为碰巧存在于一个阈值上就胜出。
+
+实际实现很依赖最近邻和最小生成树例程。简单稠密实现可能接近 `O(n^2)`；在合适数据上，优化版本可以更快。
+
+## Common confusions
+
+- HDBSCAN 不只是自动选 `epsilon` 的 DBSCAN。
+- 它可以把点标记为噪声。
+- 它仍有最小簇大小等参数，并非完全无参数。
+- 层级是模型的一部分，不只是画图技巧。
+
+<ClusteringAlgorithmFigure lang="zh" scenarioId="algorithm-contrast" />
+
+## Exercises
+
+1. 为什么跨密度层级持续存在有用？
+2. 什么样的分支应该被当作噪声？
+3. 为什么 HDBSCAN 仍需要最小簇大小选择？

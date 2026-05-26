@@ -1,0 +1,109 @@
+---
+id: dunn-index
+locale: zh
+title: Dunn 指数
+summary: 用最弱簇间间隔除以最大簇内直径来评价聚类。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites:
+  - silhouette-score
+next:
+  - calinski-harabasz-index
+  - davies-bouldin-index
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import InternalClusteringMetricFigure from "../../../components/interactive/InternalClusteringMetricFigure";
+import InternalClusteringMetricLab from "../../../components/interactive/InternalClusteringMetricLab";
+import { dunnIndexFromPoints, internalClusteringFixture } from "../../../components/interactive/internalClusteringMetricsTrace";
+
+## 问题入口：最弱间隔可能决定整体判断
+
+平均值可能隐藏一个聚类最脆弱的位置。
+
+Dunn 指数问一个极值问题：“最近的簇间间隔，相对于最宽的簇，有多大？”
+
+<InternalClusteringMetricFigure lang="zh" scenarioId="dunn-extremes" />
+
+## 第一个朴素想法：平均所有距离
+
+距离平均值可能看起来不错，即使某个桥接点几乎碰到了另一个簇。
+
+在一些应用里，这个最弱间隔正是你关心的部分。
+
+## 核心发明：最小分离度除以最大直径
+
+本页使用一种常见 Dunn 变体：
+
+- 簇间分离度是两个不同簇中任意点对的最小距离。
+- 簇内直径是同一簇中任意两点的最大距离。
+
+## 形式化版本
+
+$$
+Dunn=\frac{\min_{i\ne j}\delta(C_i, C_j)}{\max_l \Delta(C_l)}
+$$
+
+这里，`delta` 是最近跨簇样本对距离，`Delta` 是最大同簇样本对距离。
+
+Dunn 越高越好。当最大簇内直径为零时，本实现返回不可用。
+
+## 交互实验台
+
+<InternalClusteringMetricLab client:load lang="zh" />
+
+静态无 JS 备选：
+
+<table className="pnp-mini-table">
+  <caption>固定样本的 Dunn 极值</caption>
+  <tbody>
+    {(() => {
+      const dunn = dunnIndexFromPoints(internalClusteringFixture);
+      return [
+        ["最近跨簇样本对", dunn.closestPair?.join(" - ") ?? "-"],
+        ["最小间隔", dunn.minInterclusterDistance.toFixed(3)],
+        ["最宽簇", dunn.widestCluster ?? "-"],
+        ["最大直径", dunn.maxIntraclusterDiameter.toFixed(3)],
+        ["Dunn", dunn.value?.toFixed(3) ?? "不可用"]
+      ].map(([label, value]) => (
+        <tr key={label}>
+          <th scope="row">{label}</th>
+          <td>{value}</td>
+        </tr>
+      ));
+    })()}
+  </tbody>
+</table>
+
+## 实现草图
+
+```ts
+function dunn(minGap: number, maxDiameter: number) {
+  return maxDiameter === 0 ? null : minGap / maxDiameter;
+}
+```
+
+## 复杂度
+
+这个变体需要成对距离，因此直接实现是 `O(n^2)`。
+
+## 常见误区
+
+- Dunn 是越高越好。
+- Dunn 使用极值，因此对离群点敏感。
+- 不同资料可能使用不同的簇间距离变体；本页使用最近跨簇样本对距离。
+
+<InternalClusteringMetricFigure lang="zh" scenarioId="metric-contrast" />
+
+## 练习
+
+1. 公式中的分子是什么量？
+2. 为什么桥接点会让 Dunn 很快变小？
+3. 哪种离群点会让分母过大？

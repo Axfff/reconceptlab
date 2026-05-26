@@ -1,0 +1,151 @@
+---
+id: b-tree
+locale: en
+title: B-Tree
+summary: Keep sorted keys searchable with a shallow multiway tree whose nodes hold many keys at once.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: data-structure
+tags:
+  - data-structures
+  - trees
+  - storage
+  - indexing
+prerequisites: []
+next:
+  - b-plus-tree
+createdAt: 2026-05-19
+updatedAt: 2026-05-19
+---
+
+import BTreeNodeFigure from "../../../components/interactive/BTreeNodeFigure";
+import BTreeSearchFigure from "../../../components/interactive/BTreeSearchFigure";
+import BTreeSplitDemo from "../../../components/interactive/BTreeSplitDemo";
+
+## Hook problem
+
+Imagine a huge sorted catalog stored on pages. A page or block is a chunk of storage read together, and one page read is much more expensive than checking a few keys already in memory. The goal is not only "compare fewer keys"; it is "touch fewer pages."
+
+<BTreeNodeFigure lang="en" variant="page-read" />
+
+## First naive idea: sorted array
+
+A sorted array stores values in increasing order in one long sequence. Binary search is excellent for lookup, but insertion is painful: to insert one new key, later records may shift across many pages.
+
+<BTreeNodeFigure lang="en" variant="sorted-array-pain" />
+
+## Second naive idea: binary search tree
+
+A binary search tree stores one key per node, with smaller keys on the left and larger keys on the right. That makes local insertion easier than an array, but if each node is effectively a page, a tall search path creates many page reads.
+
+<BTreeNodeFigure lang="en" variant="bst-pain" />
+
+## The core invention
+
+A B-tree is a multiway balanced search tree: one node stores many sorted keys and uses them as dividers between many child pointers. In this page's B-tree convention, a key carries its record/value or a pointer to it even when the key is in an internal node. So finding internal key `10` is a successful search, not just a routing event.
+
+<BTreeNodeFigure lang="en" variant="node-anatomy" />
+
+## Search walk
+
+Search reads one node, compares inside that node, and either stops on a matching key or descends into the one child range that could contain the key.
+
+<BTreeSearchFigure client:load lang="en" />
+
+Try `17`, internal hit `10`, and missing key `13`. Notice how the internal hit returns after one page read because internal keys are real B-tree records in this convention.
+
+## When a node gets full
+
+The easy insertion case is ordinary sorted insertion inside a leaf that still has room.
+
+<BTreeNodeFigure lang="en" variant="easy-insert" />
+
+The repair for a full node is split: divide the overfull page and promote the middle key upward.
+
+<BTreeSplitDemo client:load lang="en" mode="root" />
+
+## How the tree grows
+
+If the root is full, splitting it creates a new root and the tree becomes one level taller. That is how a height-balanced tree grows upward while all leaves stay at the same depth.
+
+<BTreeNodeFigure lang="en" variant="root-growth" />
+
+## Minimum degree
+
+This page uses the CLRS-style minimum degree `$t$`. For `$t = 2$`, a non-root node has at least `1` key and at most `3` keys. In general, if a non-root node has `$k$` keys:
+
+$$
+t - 1 \le k \le 2t - 1
+$$
+
+An internal node with `$k$` keys has `$k + 1$` children, so the maximum number of children is `$2t$`. Some texts use "order" for maximum children; this page sticks to minimum degree.
+
+<BTreeNodeFigure lang="en" variant="minimum-degree" />
+
+## Implementation sketch
+
+```ts
+function search(node: BTreeNode, key: number): SearchResult {
+  let i = firstIndexWhere(node.keys[i] >= key);
+  if (node.keys[i] === key) return { found: true, record: node.records[i] };
+  if (node.leaf) return { found: false };
+  return search(node.children[i], key);
+}
+
+function insert(root: BTreeNode, key: number) {
+  if (root.isFull()) root = splitRoot(root);
+  insertNonFull(root, key);
+}
+
+function insertNonFull(node: BTreeNode, key: number) {
+  if (node.leaf) return insertIntoSortedLeaf(node, key);
+  let i = childIndexFor(node, key);
+  if (node.children[i].isFull()) splitChild(node, i);
+  i = childIndexFor(node, key);
+  insertNonFull(node.children[i], key);
+}
+```
+
+The common "split before descent" version keeps the child you enter non-full. For the fixed sequence `[10, 20, 5, 6, 12, 30, 7, 17]`, inserting `17` first splits full child `[12, 20, 30]`, promotes `20`, then descends into `[12]`.
+
+<BTreeSplitDemo client:load lang="en" mode="non-root" />
+
+## Correctness intuition
+
+Every divider key preserves a range promise: keys in child `i` lie between the neighboring divider keys. Splitting a full node keeps the left half below the promoted key and the right half above it, so search ranges remain valid. Because splitting does not create a deeper leaf on just one side, all leaves stay at the same depth.
+
+<BTreeNodeFigure lang="en" variant="invariants" />
+
+## Complexity
+
+Let `$n$` be the number of stored keys and `$h$` the number of page levels on a root-to-leaf path. B-tree height is logarithmic with a large branching factor:
+
+$$
+h = O(\log_t n)
+$$
+
+That does not mean CPU comparisons disappear; each node may compare several keys. The storage win is that far fewer page levels are read.
+
+<BTreeNodeFigure lang="en" variant="complexity" />
+
+## Common confusions
+
+<BTreeNodeFigure lang="en" variant="confusions" />
+
+Deletion is intentionally left out here because its borrow/merge cases deserve their own treatment. This node focuses on search, insertion, split repair, and the invariants those operations protect.
+
+## Connections in the graph
+
+B+-trees keep the shallow page-based search shape, but change where values live: internal keys become guide-only separators, all records move to leaves, and leaves are linked for range scans.
+
+<BTreeNodeFigure lang="en" variant="connection" />
+
+## Exercises
+
+<BTreeNodeFigure lang="en" variant="exercise" />
+
+1. In root `[10, 20]`, which child range contains `13`?
+2. With `t = 2`, is `[5, 6, 7, 8]` a legal node before a split?
+3. When `[5, 10, 20]` splits before inserting `6`, which key is promoted?
+4. Why can a B-tree search for internal key `10` stop before reaching a leaf?

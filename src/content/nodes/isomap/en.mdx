@@ -1,0 +1,77 @@
+---
+id: isomap
+locale: en
+title: Isomap
+summary: Preserve distances along a neighbor graph so a curved manifold can be unfolded into a low-dimensional map.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - manifold-learning
+prerequisites:
+  - mds
+next:
+  - sne
+  - umap
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import DimensionalityReductionLab from "../../../components/interactive/DimensionalityReductionLab";
+
+## Hook problem: straight lines can cut through the fold
+
+Imagine points lying on a curled sheet. Two points may be close through the air but far apart if you have to walk along the sheet.
+
+Raw MDS uses straight distances, so it can flatten the wrong neighbors together. **Isomap** repairs that by measuring distance along a neighbor graph.
+
+<DimensionalityReductionFigure lang="en" scenarioId="isomap-geodesic" />
+
+## First naive idea: run MDS on Euclidean distances
+
+That works when the structure is already flat. It becomes painful when the important geometry is curved, because Euclidean distance takes shortcuts through empty space.
+
+## Core invention: local graph first, layout second
+
+Isomap has three moves:
+
+1. connect each point to nearby neighbors;
+2. compute graph shortest-path distances, written `$D_{geo}(i,j)$`;
+3. run MDS on that geodesic distance table.
+
+$$
+Y = MDS(D_{geo})
+$$
+
+The neighbor graph is the bet: local distances are trustworthy, and long distances should be assembled from local walks.
+
+## Trace lab
+
+<DimensionalityReductionLab client:load lang="en" initialMethod="isomap" />
+
+## Implementation sketch
+
+```ts
+build a k-nearest-neighbor graph;
+weight each edge by local distance;
+run all-pairs shortest paths on the graph;
+apply MDS to the graph-distance matrix;
+```
+
+## Common confusions
+
+- Isomap is sensitive to the neighbor parameter.
+- Disconnected neighbor graphs break the shortest-path table.
+- It preserves manifold distance, not arbitrary class separation.
+
+<DimensionalityReductionFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. Why does Isomap not trust long straight-line distances?
+2. What happens if the neighbor graph is disconnected?
+3. Which part of Isomap is inherited from MDS?

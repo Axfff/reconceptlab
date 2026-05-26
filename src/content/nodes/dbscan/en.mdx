@@ -1,0 +1,82 @@
+---
+id: dbscan
+locale: en
+title: DBSCAN
+summary: Find clusters as connected dense neighborhoods while marking sparse points as noise.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - clustering
+  - algorithms
+prerequisites:
+  - k-means
+next:
+  - optics
+  - hdbscan
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import ClusteringAlgorithmFigure from "../../../components/interactive/ClusteringAlgorithmFigure";
+import ClusteringAlgorithmLab from "../../../components/interactive/ClusteringAlgorithmLab";
+
+## Hook problem: not every cluster is a round blob
+
+K-Means and K-Medoids ask points to gather around centers. But some data forms curved regions, uneven islands, or scattered noise.
+
+DBSCAN starts from a different question: where is the data dense enough to keep walking?
+
+<ClusteringAlgorithmFigure lang="en" scenarioId="density-neighborhood" />
+
+## First naive idea: force every point into a cluster
+
+Forcing every point into a cluster hides outliers. A point far from all dense regions should be allowed to stay suspicious.
+
+DBSCAN repairs that by giving sparse points a name: noise.
+
+## Core invention: core, border, noise
+
+With radius `epsilon` and threshold `minPts`:
+
+- A **core point** has at least `minPts` points in its `epsilon`-neighborhood, counting itself.
+- A **border point** is not core, but it is reachable from a core point.
+- A **noise point** is not density-reachable from any core point.
+
+Clusters are connected components of density-reachable points.
+
+## Interactive trace lab
+
+<ClusteringAlgorithmLab client:load lang="en" initialAlgorithm="dbscan" />
+
+## Implementation sketch
+
+```ts
+for each unvisited point:
+  find neighbors within epsilon;
+  if the point is not core, mark it noise for now;
+  otherwise expand a cluster through neighboring core points;
+```
+
+## Correctness intuition and cost
+
+The invariant is reachability: once expansion starts from a core point, every point added is connected through a chain of dense neighborhoods.
+
+Without a spatial index, checking neighborhoods is `O(n^2)`. With an index such as a grid, k-d tree, or R-tree, neighborhood queries can be much faster on suitable data.
+
+## Common confusions
+
+- DBSCAN does not require `k`.
+- `epsilon` is a distance scale, not a probability threshold.
+- Border points can be ambiguous when they touch multiple core regions.
+- Varying densities are hard for one fixed `epsilon`.
+
+<ClusteringAlgorithmFigure lang="en" scenarioId="algorithm-contrast" />
+
+## Exercises
+
+1. Why does DBSCAN need both `epsilon` and `minPts`?
+2. Why is noise not the same as a tiny cluster?
+3. What happens when two dense regions are connected by a thin bridge?

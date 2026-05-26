@@ -1,0 +1,73 @@
+---
+id: sne
+locale: en
+title: Stochastic Neighbor Embedding
+summary: Preserve local neighborhoods by matching high-dimensional and low-dimensional neighbor probabilities.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - visualization
+prerequisites:
+  - isomap
+  - qda
+next:
+  - t-sne
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import DimensionalityReductionLab from "../../../components/interactive/DimensionalityReductionLab";
+
+## Hook problem: global distances are too much to ask
+
+In high dimensions, preserving every distance in a two-dimensional map may be unrealistic. For exploration, a more useful promise is local: keep each point's likely neighbors nearby.
+
+Stochastic Neighbor Embedding, or **SNE**, turns neighborhoods into probabilities and tries to match them.
+
+<DimensionalityReductionFigure lang="en" scenarioId="sne-neighbors" />
+
+## First naive idea: preserve exact distances
+
+Distance-preserving maps fight many constraints at once. If the learner mainly wants to see local groups, exact global distances may be the wrong target.
+
+## Core invention: match neighbor probabilities
+
+For point `i`, SNE defines a probability that point `j` is chosen as its neighbor:
+
+$$
+p_{j|i} \propto \exp\left(-\frac{\lVert x_i-x_j\rVert^2}{2\sigma_i^2}\right)
+$$
+
+Then it searches for low-dimensional points with similar probabilities and minimizes a KL divergence between the high-dimensional and low-dimensional neighbor distributions.
+
+## Trace lab
+
+<DimensionalityReductionLab client:load lang="en" initialMethod="sne" />
+
+## Implementation sketch
+
+```ts
+convert high-dimensional distances into neighbor probabilities;
+initialize low-dimensional coordinates;
+compute low-dimensional neighbor probabilities;
+move points to reduce KL divergence;
+```
+
+## Common confusions
+
+- SNE preserves local neighborhoods better than global scale.
+- The axes in the plot do not carry original feature meanings.
+- Crowding in two dimensions motivates t-SNE's heavy-tailed repair.
+
+<DimensionalityReductionFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. Why does SNE use probabilities instead of raw distances?
+2. What does a high `p_{j|i}` mean?
+3. What failure does t-SNE repair?

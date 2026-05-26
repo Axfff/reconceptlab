@@ -1,0 +1,84 @@
+---
+id: hdbscan
+locale: en
+title: HDBSCAN
+summary: Build a density hierarchy and select clusters that remain stable across density levels.
+status: draft
+translationStatus: source
+difficulty: advanced
+conceptType: algorithm
+tags:
+  - machine-learning
+  - clustering
+  - algorithms
+prerequisites:
+  - dbscan
+  - optics
+next: []
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import ClusteringAlgorithmFigure from "../../../components/interactive/ClusteringAlgorithmFigure";
+import ClusteringAlgorithmLab from "../../../components/interactive/ClusteringAlgorithmLab";
+
+## Hook problem: density changes by region
+
+DBSCAN asks for one density scale. OPTICS exposes many possible scales. HDBSCAN asks which clusters persist as the density requirement changes.
+
+The key move is to stop treating every cut as equal.
+
+<ClusteringAlgorithmFigure lang="en" scenarioId="density-hierarchy" />
+
+## First naive idea: choose the prettiest density cut
+
+Picking one cut by eye is fragile. A short-lived branch might look real for one scale and vanish immediately at the next.
+
+HDBSCAN repairs this by scoring stability across a hierarchy.
+
+## Core invention: condensed density tree
+
+HDBSCAN transforms distances into mutual-reachability distances, builds a hierarchy, condenses tiny branches, and selects stable clusters.
+
+The intuition is:
+
+$$
+\text{stable cluster} \approx \text{many points staying together across many density levels}
+$$
+
+Short-lived branches are treated as noise or substructure.
+
+## Interactive trace lab
+
+<ClusteringAlgorithmLab client:load lang="en" initialAlgorithm="hdbscan" />
+
+## Implementation sketch
+
+```ts
+compute core distances;
+build mutual-reachability graph;
+build a minimum spanning tree;
+condense the hierarchy by minimum cluster size;
+select stable branches as clusters;
+```
+
+## Correctness intuition and cost
+
+The hierarchy keeps a record of how clusters split as density becomes stricter. Stability prevents a cluster from winning merely because it exists at one lucky threshold.
+
+Practical implementations depend heavily on nearest-neighbor and minimum-spanning-tree routines. A simple dense implementation can be around `O(n^2)`, while optimized versions can do better on favorable data.
+
+## Common confusions
+
+- HDBSCAN is not just DBSCAN with automatic `epsilon`.
+- It can label points as noise.
+- It has parameters such as minimum cluster size; it is not parameter-free.
+- The hierarchy is part of the model, not just a plotting trick.
+
+<ClusteringAlgorithmFigure lang="en" scenarioId="algorithm-contrast" />
+
+## Exercises
+
+1. Why is persistence across density levels useful?
+2. What kind of branch should be treated as noise?
+3. Why does HDBSCAN still need a minimum cluster-size choice?

@@ -1,0 +1,87 @@
+---
+id: em-for-gmm
+locale: zh
+title: GMM 的 EM 算法
+summary: 通过软成员概率估计和参数更新交替进行，拟合可重叠的高斯簇。
+status: draft
+translationStatus: needs-review
+difficulty: advanced
+conceptType: algorithm
+tags:
+  - machine-learning
+  - clustering
+  - algorithms
+  - probability
+prerequisites:
+  - k-means
+next: []
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import ClusteringAlgorithmFigure from "../../../components/interactive/ClusteringAlgorithmFigure";
+import ClusteringAlgorithmLab from "../../../components/interactive/ClusteringAlgorithmLab";
+
+## Hook problem：有些点位于簇之间
+
+K-Means 做硬决定：每个点只属于一个簇。但可重叠的云团常常有边界点，它们对多个组都部分可信。
+
+高斯混合模型（Gaussian mixture model, GMM）把这种不确定性保留下来。
+
+<ClusteringAlgorithmFigure lang="zh" scenarioId="soft-membership" />
+
+## First naive idea：把点分给最可能的高斯
+
+硬分配会丢掉有用的不确定性。概率为 `0.52` 和 `0.48` 的边界点，不应和概率为 `0.99` 和 `0.01` 的点一样影响模型。
+
+**EM 算法（expectation-maximization）**用小数形式的成员概率来修补这一点。
+
+## Core invention：先期望，再最大化
+
+对 GMM 来说，EM 交替做：
+
+- **E 步（E-step）**：计算责任度（responsibility），即成分 `j` 解释点 `x_i` 的概率。
+- **M 步（M-step）**：用责任度加权更新均值、方差或协方差，以及混合权重。
+
+成分 `j` 的责任度形式是：
+
+$$
+r_{ij}=\frac{\pi_j\,\mathcal{N}(x_i\mid\mu_j,\Sigma_j)}{\sum_{\ell}\pi_{\ell}\,\mathcal{N}(x_i\mid\mu_{\ell},\Sigma_{\ell})}
+$$
+
+分子表示成分 `j` 对该点的解释力度；分母把所有成分归一化。
+
+## Interactive trace lab
+
+<ClusteringAlgorithmLab client:load lang="zh" initialAlgorithm="em-for-gmm" />
+
+## Implementation sketch
+
+```ts
+repeat {
+  compute responsibilities for each point and component;
+  update each component from weighted points;
+  update mixture weights from total responsibility;
+}
+```
+
+## Correctness intuition and cost
+
+EM 会不断改进所选混合模型族下的数据似然，但仍可能停在局部最优。
+
+对于 `n` 个点、`k` 个成分、`d` 维特征、`t` 次迭代，对角协方差实现通常约为 `O(t n k d)`。完整协方差更新更贵。
+
+## Common confusions
+
+- GMM 的 EM 是软聚类，不是硬划分。
+- 高斯成分可以重叠。
+- 成分数量要在拟合前选择。
+- 糟糕初始化仍然会影响结果。
+
+<ClusteringAlgorithmFigure lang="zh" scenarioId="graph-strip" />
+
+## Exercises
+
+1. 责任度 `r_ij` 用文字怎么解释？
+2. 为什么边界点应该以小数权重贡献？
+3. GMM 的 EM 与 K-Means 哪里相似，哪里不同？

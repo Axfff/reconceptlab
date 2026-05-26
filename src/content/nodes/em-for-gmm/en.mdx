@@ -1,0 +1,87 @@
+---
+id: em-for-gmm
+locale: en
+title: EM for Gaussian Mixture Models
+summary: Fit overlapping Gaussian clusters by alternating soft membership estimates with parameter updates.
+status: draft
+translationStatus: source
+difficulty: advanced
+conceptType: algorithm
+tags:
+  - machine-learning
+  - clustering
+  - algorithms
+  - probability
+prerequisites:
+  - k-means
+next: []
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import ClusteringAlgorithmFigure from "../../../components/interactive/ClusteringAlgorithmFigure";
+import ClusteringAlgorithmLab from "../../../components/interactive/ClusteringAlgorithmLab";
+
+## Hook problem: some points are between clusters
+
+K-Means makes a hard decision: each point belongs to exactly one cluster. But overlapping clouds often have boundary points that are partly plausible under more than one group.
+
+Gaussian mixture models keep that uncertainty visible.
+
+<ClusteringAlgorithmFigure lang="en" scenarioId="soft-membership" />
+
+## First naive idea: assign each point to its most likely Gaussian
+
+Hard assignment throws away useful uncertainty. A boundary point with probabilities `0.52` and `0.48` should not influence the model the same way as a point with `0.99` and `0.01`.
+
+EM repairs that by using fractional membership.
+
+## Core invention: expectation then maximization
+
+For a Gaussian mixture model, EM alternates:
+
+- **E-step**: compute responsibilities, the probability that component `j` explains point `x_i`.
+- **M-step**: update means, variances or covariances, and mixture weights using those responsibilities.
+
+For component `j`, responsibility has the shape:
+
+$$
+r_{ij}=\frac{\pi_j\,\mathcal{N}(x_i\mid\mu_j,\Sigma_j)}{\sum_{\ell}\pi_{\ell}\,\mathcal{N}(x_i\mid\mu_{\ell},\Sigma_{\ell})}
+$$
+
+The numerator says how much component `j` explains the point; the denominator normalizes across all components.
+
+## Interactive trace lab
+
+<ClusteringAlgorithmLab client:load lang="en" initialAlgorithm="em-for-gmm" />
+
+## Implementation sketch
+
+```ts
+repeat {
+  compute responsibilities for each point and component;
+  update each component from weighted points;
+  update mixture weights from total responsibility;
+}
+```
+
+## Correctness intuition and cost
+
+EM repeatedly improves the data likelihood for the chosen mixture family, but it can still stop at a local optimum.
+
+For `n` points, `k` components, `d` dimensions, and `t` iterations, diagonal-covariance implementations are often about `O(t n k d)`. Full covariance updates are more expensive.
+
+## Common confusions
+
+- EM for GMM is soft clustering, not hard partitioning.
+- Gaussian components can overlap.
+- The number of components is chosen before fitting.
+- Bad initialization can still matter.
+
+<ClusteringAlgorithmFigure lang="en" scenarioId="graph-strip" />
+
+## Exercises
+
+1. What does responsibility `r_ij` mean in words?
+2. Why should a boundary point contribute fractionally?
+3. How is EM for GMM similar to K-Means, and how is it different?

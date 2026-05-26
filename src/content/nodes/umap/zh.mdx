@@ -1,0 +1,74 @@
+---
+id: umap
+locale: zh
+title: UMAP
+summary: 构造模糊邻居图，并优化一个具有相似局部成员强度的低维图。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - dimensionality-reduction
+  - visualization
+prerequisites:
+  - isomap
+  - t-sne
+next: []
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import DimensionalityReductionFigure from "../../../components/interactive/DimensionalityReductionFigure";
+import DimensionalityReductionLab from "../../../components/interactive/DimensionalityReductionLab";
+
+## 钩子问题：保留局部结构，同时适合实际数据
+
+t-SNE 能做出有用的局部地图，但学习者仍需要理解邻居强度、吸引、排斥和解读边界。
+
+统一流形近似与投影（Uniform Manifold Approximation and Projection，**UMAP**）从加权邻居图开始，再优化一个行为相似的低维图。
+
+<DimensionalityReductionFigure lang="zh" scenarioId="graph-strip" />
+
+## 第一个朴素想法：只保留硬性的最近邻边
+
+是或否的邻居图会丢掉有用的不确定性。有些邻居非常可信；有些只是勉强落在局部半径内。
+
+## 核心发明：匹配模糊图
+
+UMAP 构造一个模糊邻居图（fuzzy neighbor graph）：每条局部边都有成员强度。布局时，强邻居对被拉近，被采样的非邻居对被推远。
+
+第一版可以记成：
+
+$$
+\text{low-dimensional graph} \approx \text{high-dimensional fuzzy neighbor graph}
+$$
+
+## 追踪实验室
+
+<DimensionalityReductionLab client:load lang="zh" initialMethod="umap" />
+
+## 实现草图
+
+```ts
+find approximate nearest neighbors;
+convert local distances into weighted edges;
+initialize low-dimensional points;
+optimize attraction for edges and repulsion for sampled non-edges;
+```
+
+## 解读警告
+
+UMAP 坐标轴通常没有直接特征含义。局部邻域比全局面积、方向或空白空间更可信。`n_neighbors` 和 `min_dist` 等参数会改变地图强调的内容。
+
+## 常见混淆
+
+- UMAP 不是“总是更好的 t-SNE”；它做的是不同建模选择。
+- 强烈的视觉小岛需要领域检查或指标支持，才能变成结论。
+- 模糊图保存局部成员程度，不只是二元边。
+
+## 练习
+
+1. UMAP 为什么保留加权邻居强度？
+2. 布局中的吸引和排斥分别做什么？
+3. UMAP 图中哪些部分容易被过度解读？

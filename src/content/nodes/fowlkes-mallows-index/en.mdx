@@ -1,0 +1,116 @@
+---
+id: fowlkes-mallows-index
+locale: en
+title: Fowlkes-Mallows Index
+summary: Score clustering with the geometric mean of pair precision and pair recall.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites:
+  - rand-index
+next:
+  - adjusted-rand-index
+createdAt: 2026-05-21
+updatedAt: 2026-05-21
+---
+
+import ClusteringMetricFigure from "../../../components/interactive/ClusteringMetricFigure";
+import ClusteringMetricLab from "../../../components/interactive/ClusteringMetricLab";
+
+## Hook problem: focus on pairs placed together
+
+Rand Index includes `TN`: pairs that are different in the reference labels and different in the clustering.
+
+Sometimes you want a metric that focuses on the positive clustering decision: "these two items belong together."
+
+Fowlkes-Mallows Index uses only `TP`, `FP`, and `FN`.
+
+<ClusteringMetricFigure lang="en" scenarioId="fmi-geometric" />
+
+## First naive idea: use pair precision only
+
+Pair precision asks:
+
+$$
+\frac{TP}{TP+FP}
+$$
+
+That measures how trustworthy same-cluster pairs are. But it ignores same-label pairs that the clustering split apart.
+
+## Core invention: balance pair precision and pair recall
+
+Pair recall asks:
+
+$$
+\frac{TP}{TP+FN}
+$$
+
+FMI combines pair precision and pair recall with a geometric mean:
+
+$$
+FMI=\sqrt{\frac{TP}{TP+FP}\cdot\frac{TP}{TP+FN}}
+$$
+
+The equivalent count form is:
+
+$$
+FMI=\frac{TP}{\sqrt{(TP+FP)(TP+FN)}}
+$$
+
+For the fixture:
+
+$$
+FMI=\frac{3}{\sqrt{(3+1)(3+4)}}=\frac{3}{\sqrt{28}}\approx 0.567
+$$
+
+## Interactive preset lab
+
+<ClusteringMetricLab client:load lang="en" />
+
+## Why `TN` is absent
+
+`TN` means two items were apart in both the reference labels and the clustering. That is real agreement for RI, but it does not tell us whether predicted same-cluster groups are useful.
+
+FMI therefore focuses on the co-clustered pair decision.
+
+<ClusteringMetricFigure lang="en" scenarioId="rand-counts" />
+
+## Edge cases
+
+If `TP + FP = 0`, there are no predicted same-cluster pairs, so pair precision is unavailable.
+
+If `TP + FN = 0`, there are no reference same-label pairs, so pair recall is unavailable.
+
+In either case, render FMI as `not available` rather than `NaN`.
+
+## Implementation sketch
+
+```ts
+function fowlkesMallows(tp: number, fp: number, fn: number) {
+  const denominator = Math.sqrt((tp + fp) * (tp + fn));
+  return denominator === 0 ? null : tp / denominator;
+}
+```
+
+## Complexity
+
+Once pair counts are known, FMI is `O(1)`. Building pair counts directly is `O(n^2)`, or it can be derived from a contingency table.
+
+## Common confusions
+
+- FMI is not classifier F1, though both balance two positive-side quantities.
+- FMI does not adjust for chance the way ARI does.
+- A clustering that merges everything can have high pair recall but weak pair precision.
+
+<ClusteringMetricFigure lang="en" scenarioId="metric-contrast" />
+
+## Exercises
+
+1. Why does FMI ignore `TN`?
+2. What happens to FMI in the singleton over-split preset?
+3. Which mistake hurts pair precision: `FP` or `FN`?

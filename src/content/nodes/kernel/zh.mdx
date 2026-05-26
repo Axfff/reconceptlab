@@ -1,0 +1,91 @@
+---
+id: kernel
+locale: zh
+title: 核函数
+summary: 像已经把输入映射进特征空间一样比较两个输入，而且通常不需要显式构造那个空间。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - kernels
+  - similarity
+prerequisites:
+  - feature-map
+next:
+  - linear-kernel
+  - polynomial-kernel
+  - rbf-kernel
+  - sigmoid-kernel
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import KernelFunctionFigure from "../../../components/interactive/KernelFunctionFigure";
+import KernelSimilarityLab from "../../../components/interactive/KernelSimilarityLab";
+
+## Hook problem：先映射可能很贵
+
+特征映射说的是：“先改写每个输入，再比较改写后的向量。”这很清楚，但当新向量非常大时会很浪费。
+
+**核函数（kernel function）**直接询问这个比较结果。
+
+<KernelFunctionFigure lang="zh" scenarioId="kernel-shortcut" />
+
+## First naive idea：显式构造所有特征
+
+直接路线是：
+
+1. 计算 `phi(x)`；
+2. 计算 `phi(z)`；
+3. 对它们做内积。
+
+小的二次映射这样做没问题。但当特征空间有成千上万、上百万，甚至无限多个坐标时，这条路会变得很痛苦。
+
+## Core invention：用捷径完成比较
+
+核函数的形式是：
+
+$$
+K(x,z)=\langle \phi(x), \phi(z)\rangle
+$$
+
+输入 `x` 和 `z` 留在原空间里。函数返回它们经过特征映射 `phi` 后本应得到的内积。
+
+## Interactive similarity lab
+
+<KernelSimilarityLab client:load lang="zh" initialKernel="rbf" />
+
+静态无 JS 兜底：
+
+<KernelFunctionFigure lang="zh" scenarioId="rbf-neighborhood" />
+
+## Valid-kernel boundary
+
+不是任意相似度分数都能作为核方法里的有效核。有效核必须表现得像某个特征空间里的内积，也就是对任意有限样本，它的 Gram 矩阵应当是正半定的。
+
+在这个节点里先记住实用规则：常见核函数有已知的几何含义和适用条件。证明细节留给后续节点。
+
+## Implementation sketch
+
+```ts
+function rbfKernel(x: Point, z: Point, gamma: number) {
+  const squaredDistance = (x.a - z.a) ** 2 + (x.b - z.b) ** 2;
+  return Math.exp(-gamma * squaredDistance);
+}
+```
+
+## Common confusions
+
+- 核函数是关于两个输入的函数，不是新的坐标向量。
+- 核值是某种选定几何下的相似度，不是万能语义相似度。
+- 有些核函数有参数；参数改变，几何也会改变。
+
+<KernelFunctionFigure lang="zh" scenarioId="graph-strip" />
+
+## Exercises
+
+1. `K(x,z)` 返回什么？
+2. 为什么我们可能不想显式构造 `phi(x)`？
+3. 为什么 Sigmoid 核要比 RBF 核更谨慎地使用？

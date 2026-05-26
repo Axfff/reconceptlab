@@ -1,0 +1,90 @@
+---
+id: calinski-harabasz-index
+locale: zh
+title: Calinski-Harabasz 指数
+summary: 用簇间质心离散度和簇内离散度的比例来评价聚类。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - metrics
+  - clustering
+prerequisites:
+  - silhouette-score
+next:
+  - davies-bouldin-index
+  - dunn-index
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import InternalClusteringMetricFigure from "../../../components/interactive/InternalClusteringMetricFigure";
+import InternalClusteringMetricLab from "../../../components/interactive/InternalClusteringMetricLab";
+
+## 问题入口：概括整幅几何图
+
+轮廓系数逐点观察。Calinski-Harabasz 指数（CH）问一个更粗的摘要问题：
+
+> 簇中心之间是否足够远，而每个簇内部是否足够紧？
+
+它仍然是内部聚类指标。它使用几何和簇分配，不使用参考标签。
+
+<InternalClusteringMetricFigure lang="zh" scenarioId="ch-scatter" />
+
+## 第一个朴素想法：只看簇内离散度
+
+簇内离散度小是好事，但还不够。
+
+三个很小但几乎重叠的簇，不应该和三个分散在平面各处的小簇得到同样评价。
+
+## 核心发明：簇间离散度除以簇内离散度
+
+CH 使用两个量：
+
+- `W_k`：簇内离散度，即每个点到自己簇质心的平方距离之和。
+- `B_k`：簇间离散度，即每个簇质心到全局质心的平方距离，并按簇大小加权。
+
+## 形式化版本
+
+对 `n` 个点、`k` 个簇：
+
+$$
+CH=\frac{B_k/(k-1)}{W_k/(n-k)}
+$$
+
+直观地说：分子奖励彼此远离的簇中心；分母惩罚远离自己簇中心的点。
+
+CH 越高越好。当 `k < 2`、`n <= k`，或簇内离散度为零时，本实现返回不可用。
+
+## 交互实验台
+
+<InternalClusteringMetricLab client:load lang="zh" />
+
+## 实现草图
+
+```ts
+function calinskiHarabasz(between: number, within: number, n: number, k: number) {
+  if (k < 2 || n <= k || within === 0) return null;
+  return (between / (k - 1)) / (within / (n - k));
+}
+```
+
+## 复杂度
+
+已知簇分配后，计算质心和平方距离和对固定维度点是 `O(n)`。如果维度可变，需要再乘上维度因子。
+
+## 常见误区
+
+- CH 是越高越好，这一点和 Davies-Bouldin 相反。
+- CH 不是外部指标；它不知道真实标签。
+- 平方距离会让远离簇中心的点产生更大影响。
+
+<InternalClusteringMetricFigure lang="zh" scenarioId="metric-contrast" />
+
+## 练习
+
+1. 簇质心彼此变远时，公式中的哪一部分会增大？
+2. 每个簇被拉长时，哪一部分会增大？
+3. 为什么 `n <= k` 是退化情况？

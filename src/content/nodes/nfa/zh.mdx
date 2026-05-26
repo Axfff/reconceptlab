@@ -1,0 +1,195 @@
+---
+id: nfa
+locale: zh
+title: 非确定性有限自动机（NFA）
+summary: 让有限状态机在可能的位置分支，只要有一条完整路径成功就接受输入。
+status: draft
+translationStatus: needs-review
+difficulty: beginner
+conceptType: concept
+tags:
+  - theory-of-computing
+  - automata
+  - regular-languages
+prerequisites:
+  - dfa
+next: []
+createdAt: 2026-05-25
+updatedAt: 2026-05-25
+---
+
+import NfaScenarioFigure from "../../../components/interactive/NfaScenarioFigure";
+import NfaSimulator from "../../../components/interactive/NfaSimulator";
+
+## 钩子问题
+
+我们想识别所有包含子串 `01` 的二进制字符串。`010` 应该被接受，因为前两个符号就是 `01`。`1110` 应该被拒绝，因为没有任何一个 `0` 后面紧跟 `1`。
+
+这个语言本身不难，这是有意为之。本节点的重点是比较两种有限记忆故事：DFA 的单一路径，和非确定性有限自动机（nondeterministic finite automaton, NFA）的分支路径。
+
+<NfaScenarioFigure lang="zh" scenarioId="hook-substring-cards" />
+
+## DFA 基线
+
+DFA 可以用一个当前状态解决这个问题。它记住“刚才是否看到一个有希望的 `0`”，一旦看到 `01`，就可以一直保持接受。
+
+这个确定性视角完全可行。NFA 给出另一种视角：每遇到一个 `0`，机器既继续正常扫描，也开启一条分支（branch），把这个 `0` 当作 `01` 的可能起点。
+
+<NfaScenarioFigure lang="zh" scenarioId="dfa-vs-nfa-comparison" />
+
+## 分支想法
+
+最小的新发明是：一次转移可以返回多个下一状态。从 `q0` 读到输入 `0` 时，机器同时到达 `q0` 和 `q1`：
+
+$\delta(q_0, 0) = \{q_0, q_1\}$
+
+一条分支表示“继续寻找”。另一条分支表示“试着把这个 `0` 当作 `01` 的开头”。
+
+<NfaScenarioFigure lang="zh" scenarioId="branching-fork" />
+
+## 每个状态的含义
+
+这个 NFA 有三个状态：
+
+- `q0`：继续扫描可能的起点。
+- `q1`：刚选择一个 `0` 作为 `01` 的可能起点。
+- `q2`：已经看到 `01`；接受，并保持接受。
+
+它们不是三台独立机器，而是同一个前缀读完后可能存在的三种历史。
+
+<NfaScenarioFigure lang="zh" scenarioId="state-meaning-cards" />
+
+## 分支死亡
+
+缺失的转移有含义。从 `q1` 读到 `1` 会完成模式并进入 `q2`；读到 `0` 则没有完成 `01`，所以那条旧候选分支无路可走：
+
+$\delta(q_1, 0) = \emptyset$
+
+对于输入 `00`，读完第一个 `0` 后，活跃状态集合（active state set）是 `{q0,q1}`。读第二个 `0` 时，旧 `q1` 死亡；但旧 `q0` 转到 `{q0,q1}`，立刻为第二个 `0` 生成一个新的候选。活跃集合仍是 `{q0,q1}`，但事件账本展示了真正发生的变化。
+
+<NfaScenarioFigure lang="zh" scenarioId="branch-death-ledger" />
+
+## 活跃状态集合
+
+我们不必把每条分支都单独画出来，可以用活跃状态集合总结所有仍活着的分支。对于输入 `010`，精确轨迹是：
+
+`{q0} -> {q0,q1} -> {q0,q2} -> {q0,q1,q2}`
+
+读完前缀 `01` 的那一行，如果输入在此结束，就会接受，因为 `q2` 已经活跃。但整个输入只有在所有符号都消耗完后才判断接受。
+
+<NfaScenarioFigure lang="zh" scenarioId="active-set-trace" />
+
+## 互动演示
+
+逐步运行 `010`、`00` 和 `1010`。先用活跃集合视图看紧凑摘要，再切换到分支事件视图，看每个旧分支具体产生或失去了哪些状态。
+
+<NfaSimulator client:load lang="zh" />
+
+## 形式化版本
+
+不带空转移的 NFA 可以写成一个五元组：
+
+$$
+N = (Q, \Sigma, \delta, q_0, F)
+$$
+
+这里 `Q` 是有限状态集合，`\Sigma` 是输入字母表，`q0` 是起始状态，`F` 是接受状态集合。
+
+它和 DFA 的关键区别在转移函数：
+
+$$
+\delta: Q \times \Sigma \to P(Q)
+$$
+
+`P(Q)` 表示 `Q` 的幂集：所有状态子集组成的集合。一次转移返回的是一组可能的下一状态，而不是唯一的下一状态。
+
+在这个包含 `01` 的 NFA 中，`Q = { q0, q1, q2 }`，`\Sigma = { 0, 1 }`，`q0 = q0`，`F = { q2 }`，转移表如下图所示。
+
+<NfaScenarioFigure lang="zh" scenarioId="five-tuple-callout" />
+
+## 空转移说明
+
+有些 NFA 定义还允许空转移（epsilon transition）。空转移写作 $\varepsilon$，意思是不消耗输入也能移动。
+
+本节点不使用空转移。主体实现保持无 epsilon 的形式：$\delta: Q \times \Sigma \to P(Q)$。带 epsilon 的 NFA 会把转移域扩展到包含 $\varepsilon$，并需要 epsilon-closure 之类的闭包记录；这是有用的后续主题，但不是理解这里的分支语义所必需的。
+
+<NfaScenarioFigure lang="zh" scenarioId="epsilon-note" />
+
+## 实现草图
+
+直接模拟时，程序保存一组活跃状态。对每个输入符号，询问每个当前活跃状态能去哪里，然后把所有答案取并集：
+
+$$
+S_{i+1} = \bigcup_{q \in S_i} \delta(q, a_{i+1})
+$$
+
+对于 `010`，读完前缀 `0` 后，`S_1 = {q0,q1}`。下一个符号是 `1`，所以：
+
+$$
+S_2 = \delta(q_0, 1) \cup \delta(q_1, 1) = \{q_0\} \cup \{q_2\} = \{q_0, q_2\}
+$$
+
+```ts
+function accepts(input: string) {
+  let activeStates = new Set<NfaState>(["q0"]);
+
+  for (const symbol of input) {
+    const nextActiveStates = new Set<NfaState>();
+    for (const state of activeStates) {
+      for (const next of transitionTable[state][symbol]) {
+        nextActiveStates.add(next);
+      }
+    }
+    activeStates = nextActiveStates;
+  }
+
+  return activeStates.has("q2");
+}
+```
+
+<NfaScenarioFigure lang="zh" scenarioId="implementation-map" />
+
+## 前缀不变量
+
+消耗前 `i` 个符号后，`S_i` 正好包含所有“读完这个前缀后可由某条分支到达”的状态。程序不会在之后凭空发明分支，也不会忘记仍活着的分支。
+
+这个不变量解释了接受规则：
+
+$$
+\text{accept if } S_n \cap F \ne \emptyset
+$$
+
+换成话说：整个输入消耗完后，只要至少一条活跃分支处于接受状态，就接受。
+
+<NfaScenarioFigure lang="zh" scenarioId="prefix-invariant" />
+
+## 复杂度
+
+对于长度为 `n` 的输入，直接模拟会在每个符号上扫描当前活跃状态。活跃状态最多有 `|Q|` 个，所以在查表表示下，运行时间是 $O(n|Q|)$。转移表有 `|Q||Σ|` 个集合值单元。
+
+后续的 subset construction 节点会说明如何把活跃集合编译成 DFA 状态。本页只讨论直接模拟 NFA。
+
+<NfaScenarioFigure lang="zh" scenarioId="branching-cost" />
+
+## 常见误解
+
+一条分支死亡，不等于整个输入被拒绝。对 `00`，旧 `q1` 候选死亡，但 `q0` 分支继续存在，所以运行仍然有效。
+
+另外，`acceptedIfInputEndedHere` 和整个输入的 `accepted` 不是同一个字段。轨迹中的某一行只是在说“如果输入在这里结束，会接受”；最终答案只在最后一行检查。
+
+<NfaScenarioFigure lang="zh" scenarioId="common-confusions" />
+
+## 图谱连接
+
+DFA 是前置知识：先理解“一个当前状态”的语义，再看 NFA 如何把这个想法推广成“同一个前缀可以有一组可能的当前状态”。
+
+未来节点可以把 NFA 连接到 subset construction、正则表达式和 epsilon-NFA 构造。那些节点还不存在，所以本次不添加对应边。
+
+## 练习
+
+1. 预测 `01` 的活跃集合轨迹。
+2. 对 `00`，第二个符号上哪条旧分支死亡？
+3. 为什么 `1010` 虽然以 `1` 开头，最终仍然接受？
+4. 如果允许空转移，实现需要增加什么？
+
+<NfaScenarioFigure lang="zh" scenarioId="prediction-prompts" />

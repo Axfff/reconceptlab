@@ -1,0 +1,82 @@
+---
+id: k-medoids
+locale: zh
+title: K-Medoids 聚类
+summary: 用真实样本点作为簇中心，而不是平均质心，从而降低离群点对中心的拉扯。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - clustering
+  - algorithms
+prerequisites:
+  - k-means
+next:
+  - dbscan
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import ClusteringAlgorithmFigure from "../../../components/interactive/ClusteringAlgorithmFigure";
+import ClusteringAlgorithmLab from "../../../components/interactive/ClusteringAlgorithmLab";
+
+## Hook problem：均值可能漂到空白处
+
+K-Means 用平均点作为中心。这很高效，但一个很远的点可能把均值拉向并不代表任何真实样本的位置。
+
+**K-Medoids 聚类（K-Medoids clustering）**要求中心更具体：中心必须是真实数据点。
+
+<ClusteringAlgorithmFigure lang="zh" scenarioId="medoid-robustness" />
+
+## First naive idea：继续用 K-Means，再手动忽略离群点
+
+手动忽略离群点不是算法。数据一变，手动规则也会变。
+
+更小的修补是改变“中心”允许是什么。
+
+## Core invention：medoid 是样本点
+
+**中心点（medoid）**是被选中的真实样本，它代表离自己较近的一组点。K-Medoids 常见目标是最小化距离和：
+
+$$
+\sum_{i=1}^{n} d(x_i, m_{c_i})
+$$
+
+这里 `m_c` 是簇 `c` 的 medoid。因为 medoid 必须是真实样本，所以中心可检查，也不容易被极端坐标拖走。
+
+## Interactive trace lab
+
+<ClusteringAlgorithmLab client:load lang="zh" initialAlgorithm="k-medoids" />
+
+## Implementation sketch
+
+```ts
+choose k initial medoids;
+repeat {
+  assign each point to its nearest medoid;
+  try swapping a medoid with a non-medoid point;
+  keep the swap if total distance decreases;
+}
+```
+
+## Correctness intuition and cost
+
+交换版本是一种局部搜索：每次接受交换都会降低选定的距离目标，因此当没有测试交换能改进时就停止。
+
+它通常比 K-Means 更贵，因为交换候选需要大量距离计算。好处是它可以配合任意距离函数，并且中心保持为真实样本。
+
+## Common confusions
+
+- medoid 不是 centroid。
+- K-Medoids 仍然需要提前给出 `k`。
+- 它对离群点更鲁棒，但仍会受错误的 `k` 或距离定义影响。
+
+<ClusteringAlgorithmFigure lang="zh" scenarioId="graph-strip" />
+
+## Exercises
+
+1. 为什么真实样本中心可能比均值向量更容易解释？
+2. 哪一步让 K-Medoids 比 K-Means 更慢？
+3. 什么时候非欧氏距离会让 K-Medoids 更有吸引力？

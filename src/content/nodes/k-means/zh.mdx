@@ -1,0 +1,89 @@
+---
+id: k-means
+locale: zh
+title: K-Means 聚类
+summary: 通过“分配到最近质心”和“把质心移到均值”这两个步骤反复划分数据点。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - clustering
+  - algorithms
+prerequisites: []
+next:
+  - k-medoids
+  - dbscan
+  - em-for-gmm
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import ClusteringAlgorithmFigure from "../../../components/interactive/ClusteringAlgorithmFigure";
+import ClusteringAlgorithmLab from "../../../components/interactive/ClusteringAlgorithmLab";
+
+## Hook problem：没有标签时怎么分堆
+
+假设地图上有一批点，但没有答案标签。你只知道想得到 `k = 3` 个紧凑的组。
+
+朴素想法是凭眼睛画三个圈。**K-Means 聚类（K-Means clustering）**把这种直觉变成可重复的循环。
+
+<ClusteringAlgorithmFigure lang="zh" scenarioId="centroid-loop" />
+
+## First naive idea：中心只选一次
+
+如果最初的中心有点偏，很多点就会被分到错误的堆里。一直固定这些中心，会把错误保留下来。
+
+最小修补是：分配完点以后，让中心移动。
+
+## Core invention：先分配，再更新
+
+K-Means 交替做两件事：
+
+1. 把每个点分配给最近的质心（centroid）。
+2. 把每个质心移动到分给它的点的均值位置。
+
+它试图降低的目标是簇内平方误差：
+
+$$
+\sum_{i=1}^{n}\lVert x_i-\mu_{c_i}\rVert^2
+$$
+
+直观地说：每个点都为自己到所属簇质心的平方距离付出代价。
+
+## Interactive trace lab
+
+<ClusteringAlgorithmLab client:load lang="zh" initialAlgorithm="k-means" />
+
+## Implementation sketch
+
+```ts
+while (assignmentsChanged) {
+  assign each point to the nearest centroid;
+  replace each centroid with the mean of its assigned points;
+}
+```
+
+算法停止时得到的是局部最优，不保证是全局最好的聚类。
+
+## Correctness intuition and cost
+
+分配步骤不会增加目标值，因为每个点都选择当前最便宜的质心。更新步骤也不会增加目标值，因为在固定簇内，均值能最小化平方距离和。
+
+对于 `n` 个点、`k` 个簇、`d` 维特征、`t` 次迭代，常见实现的代价是 `O(t n k d)`。
+
+## Common confusions
+
+- `k` 要在算法运行前给定。
+- K-Means 假设簇大致紧凑、接近质心形状。
+- 不同初始质心可能得到不同局部最优。
+- 均值可能落在空白位置，不一定是真实数据点。
+
+<ClusteringAlgorithmFigure lang="zh" scenarioId="algorithm-contrast" />
+
+## Exercises
+
+1. 为什么 K-Means 使用距离，而不是参考标签？
+2. 如果某个簇又长又弯，会出现什么问题？
+3. 为什么两次不同随机初始化可能结果不同？

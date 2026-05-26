@@ -1,0 +1,76 @@
+---
+id: linear-kernel
+locale: zh
+title: 线性核
+summary: 当原始特征几何已经有用时，把原始点积作为最简单的核函数基线。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: concept
+tags:
+  - machine-learning
+  - kernels
+  - similarity
+prerequisites:
+  - kernel
+next:
+  - polynomial-kernel
+  - rbf-kernel
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import KernelFunctionFigure from "../../../components/interactive/KernelFunctionFigure";
+import KernelSimilarityLab from "../../../components/interactive/KernelSimilarityLab";
+
+## Hook problem：从不升维的基线开始
+
+在加入弯曲边界或局部邻域之前，先问一个问题：原始坐标本身够不够用？
+
+**线性核（linear kernel）**就是不发明新特征的核函数。
+
+<KernelFunctionFigure lang="zh" scenarioId="linear-plane" />
+
+## First naive idea：点积已经足够
+
+如果两个向量方向相近，而且长度也有意义，那么点积就是一个合理的相似度分数。
+
+痛点出现在原始对齐不是重点的时候：类似 XOR 的交互、环形结构、局部小岛，都需要超出直线几何的表达。
+
+## Formal version
+
+$$
+K(x,z)=x^Tz
+$$
+
+如果输入有 `d` 个特征，直接计算需要 `O(d)` 时间。这里的特征映射是恒等映射，所以 `phi(x)=x`。
+
+## Interactive comparison
+
+<KernelSimilarityLab client:load lang="zh" initialKernel="linear" />
+
+## Implementation sketch
+
+```ts
+function linearKernel(x: number[], z: number[]) {
+  return x.reduce((sum, value, index) => sum + value * z[index], 0);
+}
+```
+
+## Common confusions
+
+- 线性核不表示数据一定简单；它表示模型按原始特征做线性比较。
+- 如果特征工程很好，线性核仍然可以很强。
+- 换成多项式核或 RBF 核，是在改变几何，而不只是换公式名字。
+
+## Connections
+
+<KernelFunctionFigure lang="zh" scenarioId="graph-strip" />
+
+多项式核从同一个点积出发，把它的仿射形式提升到某个次数。RBF 核则离开点积对齐，改用距离衰减。
+
+## Exercises
+
+1. 线性核的特征映射是什么？
+2. 为什么直接计算代价是 `O(d)`？
+3. 举一个线性核可能吃力的模式。

@@ -1,0 +1,195 @@
+---
+id: nfa
+locale: en
+title: Nondeterministic Finite Automata
+summary: Recognize patterns by letting a finite-state machine branch, keeping any path that could still succeed.
+status: draft
+translationStatus: source
+difficulty: beginner
+conceptType: concept
+tags:
+  - theory-of-computing
+  - automata
+  - regular-languages
+prerequisites:
+  - dfa
+next: []
+createdAt: 2026-05-25
+updatedAt: 2026-05-25
+---
+
+import NfaScenarioFigure from "../../../components/interactive/NfaScenarioFigure";
+import NfaSimulator from "../../../components/interactive/NfaSimulator";
+
+## Hook problem
+
+We want to recognize binary strings that contain the substring `01`. The string `010` should be accepted because the first two symbols are `01`. The string `1110` should be rejected because no `0` is immediately followed by `1`.
+
+The interesting part is not that this language is hard. It is deliberately small. The goal is to compare two ways of telling the same finite-memory story.
+
+<NfaScenarioFigure lang="en" scenarioId="hook-substring-cards" />
+
+## DFA baseline
+
+A DFA can solve this with one current state. It can remember whether the previous symbol was a promising `0`, and once it has seen `01`, it can stay accepting forever.
+
+That deterministic view works. An NFA gives an alternate viewpoint: at every `0`, keep scanning normally and also start a branch that treats this `0` as a possible beginning of `01`.
+
+<NfaScenarioFigure lang="en" scenarioId="dfa-vs-nfa-comparison" />
+
+## The branching idea
+
+The smallest new invention is that a transition may return several next states. From `q0` on input `0`, the machine moves to both `q0` and `q1`:
+
+$\delta(q_0, 0) = \{q_0, q_1\}$
+
+One branch says "keep looking." The other branch says "try this `0` as the start of `01`."
+
+<NfaScenarioFigure lang="en" scenarioId="branching-fork" />
+
+## What each state means
+
+This NFA has three states:
+
+- `q0`: scanning for a possible start.
+- `q1`: just chose a `0` as the possible start of `01`.
+- `q2`: already saw `01`; accept and stay accepting.
+
+These are not three separate machines. They are three possible histories that can be active after reading the same prefix.
+
+<NfaScenarioFigure lang="en" scenarioId="state-meaning-cards" />
+
+## Branch death
+
+Missing transitions matter. From `q1`, reading `1` completes the pattern and goes to `q2`; reading `0` does not complete `01`, so that old candidate branch has nowhere to go:
+
+$\delta(q_1, 0) = \emptyset$
+
+For input `00`, after the first `0` the active set is `{q0,q1}`. On the second `0`, old `q1` dies, but old `q0` moves to `{q0,q1}` and immediately spawns a fresh candidate for the second `0`. The active set remains `{q0,q1}`, but the event ledger tells the real story.
+
+<NfaScenarioFigure lang="en" scenarioId="branch-death-ledger" />
+
+## Active state set
+
+Instead of drawing every branch separately, we summarize all live branches with an active state set. For input `010`, the exact trace is:
+
+`{q0} -> {q0,q1} -> {q0,q2} -> {q0,q1,q2}`
+
+The row after prefix `01` would accept if the input ended there, because `q2` is active. The whole input is accepted only after every symbol has been consumed.
+
+<NfaScenarioFigure lang="en" scenarioId="active-set-trace" />
+
+## Interactive visual demo
+
+Step through `010`, `00`, and `1010`. Use the active-set view to see the compact summary, then switch to branch-events view to see exactly which old branch created or lost each state.
+
+<NfaSimulator client:load lang="en" />
+
+## Formal version
+
+An epsilon-free nondeterministic finite automaton is a 5-tuple:
+
+$$
+N = (Q, \Sigma, \delta, q_0, F)
+$$
+
+Here `Q` is the finite set of states, `\Sigma` is the input alphabet, `q0` is the start state, and `F` is the set of accepting states.
+
+The key difference from a DFA is the transition function:
+
+$$
+\delta: Q \times \Sigma \to P(Q)
+$$
+
+`P(Q)` means the power set of `Q`: the set of all subsets of states. A transition returns a set of possible next states, not one required next state.
+
+For the contains-`01` NFA, `Q = { q0, q1, q2 }`, `\Sigma = { 0, 1 }`, `q0 = q0`, `F = { q2 }`, and the transition table is the one shown here.
+
+<NfaScenarioFigure lang="en" scenarioId="five-tuple-callout" />
+
+## Epsilon note
+
+Some NFA definitions also allow epsilon transitions. An epsilon transition consumes no input; it is written with $\varepsilon$.
+
+This node does not use them. The main implementation stays epsilon-free with $\delta: Q \times \Sigma \to P(Q)$. Epsilon-NFAs extend the transition domain to include $\varepsilon$ and need epsilon-closure bookkeeping, which is a useful later topic but not needed for the branching semantics here.
+
+<NfaScenarioFigure lang="en" scenarioId="epsilon-note" />
+
+## Implementation sketch
+
+The direct simulation stores a set of active states. For each input symbol, ask every currently active state where it can go, then union all answers:
+
+$$
+S_{i+1} = \bigcup_{q \in S_i} \delta(q, a_{i+1})
+$$
+
+For `010`, after reading prefix `0`, `S_1 = {q0,q1}`. The next symbol is `1`, so:
+
+$$
+S_2 = \delta(q_0, 1) \cup \delta(q_1, 1) = \{q_0\} \cup \{q_2\} = \{q_0, q_2\}
+$$
+
+```ts
+function accepts(input: string) {
+  let activeStates = new Set<NfaState>(["q0"]);
+
+  for (const symbol of input) {
+    const nextActiveStates = new Set<NfaState>();
+    for (const state of activeStates) {
+      for (const next of transitionTable[state][symbol]) {
+        nextActiveStates.add(next);
+      }
+    }
+    activeStates = nextActiveStates;
+  }
+
+  return activeStates.has("q2");
+}
+```
+
+<NfaScenarioFigure lang="en" scenarioId="implementation-map" />
+
+## Prefix invariant
+
+After consuming the first `i` symbols, `S_i` contains exactly the states reachable by some branch that reads that prefix. No branch is invented later, and no live branch is forgotten.
+
+That invariant explains the acceptance rule:
+
+$$
+\text{accept if } S_n \cap F \ne \emptyset
+$$
+
+In words: after the whole input is consumed, accept if at least one active branch is in an accepting state.
+
+<NfaScenarioFigure lang="en" scenarioId="prefix-invariant" />
+
+## Complexity
+
+For input length `n`, direct simulation examines the active states for each symbol. There are at most `|Q|` active states, so the running time is $O(n|Q|)$ with a table lookup representation. The transition table has `|Q||Σ|` rows or cells of sets.
+
+A future subset-construction node will show how active sets can be compiled into DFA states. This page stops at direct NFA simulation.
+
+<NfaScenarioFigure lang="en" scenarioId="branching-cost" />
+
+## Common confusions
+
+A dead branch is not a rejected input. For `00`, the old `q1` candidate dies, but the `q0` branch continues, so the run is still meaningful.
+
+Also, `acceptedIfInputEndedHere` is not the same field as whole-input `accepted`. A trace row can say "would accept if the input ended here"; the final answer is checked only at the last row.
+
+<NfaScenarioFigure lang="en" scenarioId="common-confusions" />
+
+## Connections in the graph
+
+DFA is the prerequisite: learn the one-current-state semantics first, then NFA branching is a controlled generalization where one prefix can have a set of possible current states.
+
+Future nodes can connect NFA to subset construction, regular expressions, and epsilon-NFA construction. Those edges are not added until those nodes exist.
+
+## Exercises
+
+1. Predict the active sets for `01`.
+2. For `00`, which old branch dies on the second symbol?
+3. Why does `1010` accept even though it starts with `1`?
+4. What changes in the implementation if epsilon transitions are allowed?
+
+<NfaScenarioFigure lang="en" scenarioId="prediction-prompts" />

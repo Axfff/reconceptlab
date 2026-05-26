@@ -1,0 +1,89 @@
+---
+id: k-means
+locale: en
+title: K-Means Clustering
+summary: Partition points by repeatedly assigning them to nearest centroids and moving each centroid to its assigned mean.
+status: draft
+translationStatus: source
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - clustering
+  - algorithms
+prerequisites: []
+next:
+  - k-medoids
+  - dbscan
+  - em-for-gmm
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import ClusteringAlgorithmFigure from "../../../components/interactive/ClusteringAlgorithmFigure";
+import ClusteringAlgorithmLab from "../../../components/interactive/ClusteringAlgorithmLab";
+
+## Hook problem: make piles without labels
+
+Suppose you have points on a map but no answer key. You only know you want `k = 3` compact groups.
+
+A naive idea is to draw three circles by eye. K-Means turns that drawing habit into a repeatable loop.
+
+<ClusteringAlgorithmFigure lang="en" scenarioId="centroid-loop" />
+
+## First naive idea: choose centers once
+
+If the first centers are a little wrong, many points are assigned to the wrong pile. Keeping those centers fixed bakes in the mistake.
+
+The repair is small: after assigning points, let the centers move.
+
+## Core invention: assignment then update
+
+K-Means alternates two moves:
+
+1. Assign every point to its nearest centroid.
+2. Move each centroid to the mean of the points assigned to it.
+
+The objective it tries to reduce is the within-cluster squared error:
+
+$$
+\sum_{i=1}^{n}\lVert x_i-\mu_{c_i}\rVert^2
+$$
+
+In words: each point pays the squared distance to the centroid of its assigned cluster.
+
+## Interactive trace lab
+
+<ClusteringAlgorithmLab client:load lang="en" initialAlgorithm="k-means" />
+
+## Implementation sketch
+
+```ts
+while (assignmentsChanged) {
+  assign each point to the nearest centroid;
+  replace each centroid with the mean of its assigned points;
+}
+```
+
+The algorithm stops at a local optimum, not necessarily the best possible clustering.
+
+## Correctness intuition and cost
+
+The assignment step cannot increase the objective because each point chooses the cheapest current centroid. The update step cannot increase it because the mean minimizes squared distance inside one fixed cluster.
+
+For `n` points, `k` clusters, `d` dimensions, and `t` iterations, the common implementation costs `O(t n k d)`.
+
+## Common confusions
+
+- `k` is chosen before the algorithm runs.
+- K-Means assumes roughly compact, centroid-shaped clusters.
+- Different initial centroids can produce different local optima.
+- The mean may be a point in empty space, not an actual data example.
+
+<ClusteringAlgorithmFigure lang="en" scenarioId="algorithm-contrast" />
+
+## Exercises
+
+1. Why does K-Means use squared distance rather than cluster labels?
+2. What can go wrong if one cluster is long and curved?
+3. Why might two runs with different random starts disagree?

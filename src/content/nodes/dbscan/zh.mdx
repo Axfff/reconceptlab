@@ -1,0 +1,82 @@
+---
+id: dbscan
+locale: zh
+title: DBSCAN
+summary: 把簇看作连通的稠密邻域，同时把稀疏点标记为噪声。
+status: draft
+translationStatus: needs-review
+difficulty: intermediate
+conceptType: algorithm
+tags:
+  - machine-learning
+  - clustering
+  - algorithms
+prerequisites:
+  - k-means
+next:
+  - optics
+  - hdbscan
+createdAt: 2026-05-22
+updatedAt: 2026-05-22
+---
+
+import ClusteringAlgorithmFigure from "../../../components/interactive/ClusteringAlgorithmFigure";
+import ClusteringAlgorithmLab from "../../../components/interactive/ClusteringAlgorithmLab";
+
+## Hook problem：簇不一定是圆形团块
+
+K-Means 和 K-Medoids 都让点围绕中心聚集。但有些数据是弯曲区域、不均匀岛屿，或者混着零散噪声。
+
+**DBSCAN** 从另一个问题开始：哪里足够稠密，可以继续走下去？
+
+<ClusteringAlgorithmFigure lang="zh" scenarioId="density-neighborhood" />
+
+## First naive idea：把每个点都塞进某个簇
+
+强行给每个点分簇会隐藏离群点。远离所有稠密区域的点应该可以保持可疑。
+
+DBSCAN 的修补是给稀疏点一个名字：噪声（noise）。
+
+## Core invention：核心、边界、噪声
+
+给定半径 `epsilon` 和阈值 `minPts`：
+
+- **核心点（core point）** 的 `epsilon` 邻域中至少有 `minPts` 个点，包括它自己。
+- **边界点（border point）** 不是核心点，但能从某个核心点到达。
+- **噪声点（noise point）** 不能从任何核心点通过密度到达。
+
+簇就是密度可达点组成的连通部分。
+
+## Interactive trace lab
+
+<ClusteringAlgorithmLab client:load lang="zh" initialAlgorithm="dbscan" />
+
+## Implementation sketch
+
+```ts
+for each unvisited point:
+  find neighbors within epsilon;
+  if the point is not core, mark it noise for now;
+  otherwise expand a cluster through neighboring core points;
+```
+
+## Correctness intuition and cost
+
+关键不变量是可达性：一旦从核心点开始扩张，加入的每个点都通过一串稠密邻域相连。
+
+没有空间索引时，检查邻域通常是 `O(n^2)`。如果有网格、k-d tree 或 R-tree 这类索引，在合适数据上邻域查询会快得多。
+
+## Common confusions
+
+- DBSCAN 不需要提前给出 `k`。
+- `epsilon` 是距离尺度，不是概率阈值。
+- 边界点如果碰到多个核心区域，可能有歧义。
+- 密度差异很大时，一个固定 `epsilon` 会很难选。
+
+<ClusteringAlgorithmFigure lang="zh" scenarioId="algorithm-contrast" />
+
+## Exercises
+
+1. 为什么 DBSCAN 同时需要 `epsilon` 和 `minPts`？
+2. 为什么噪声不等于一个很小的簇？
+3. 如果两个稠密区域被细桥连接，会发生什么？
