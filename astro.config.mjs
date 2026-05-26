@@ -4,15 +4,20 @@ import react from "@astrojs/react";
 import rehypeKatex from "rehype-katex";
 import remarkMath from "remark-math";
 
+import cloudflare from "@astrojs/cloudflare";
+
 const site = process.env.PUBLIC_SITE_URL ?? "https://reconceptlab.com";
 
 export default defineConfig({
   site,
+
   integrations: [
     mdx({
       remarkPlugins: [remarkMath],
       rehypePlugins: [rehypeKatex]
     }),
     react()
-  ]
+  ],
+
+  adapter: cloudflare()
 });
