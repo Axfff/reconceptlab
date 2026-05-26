@@ -20,6 +20,7 @@ type LayoutNode = GraphNode & {
 };
 
 type LayoutEdge = GraphEdge & {
+  curveOffset: number;
   fromNode: LayoutNode;
   labelWidth: number;
   toNode: LayoutNode;
@@ -44,8 +45,13 @@ const VIEWBOX_HEIGHT = 480;
 const MIN_ZOOM = 0.45;
 const MAX_ZOOM = 2.8;
 const LAYOUT_PADDING = 80;
-const NODE_GAP_X = 250;
+const NODE_GAP_X = 280;
 const NODE_GAP_Y = 132;
+const COLUMN_X_DRIFT = 14;
+const ORDERING_SWEEPS = 8;
+const FORCE_ITERATIONS = 220;
+const EDGE_NODE_CLEARANCE = 34;
+const EDGE_EDGE_CLEARANCE = 26;
 const conceptTypeRank: Record<GraphNode["conceptType"], number> = {
   concept: 0,
   math: 1,
@@ -59,6 +65,10 @@ const interactionCopy = {
   en: {
     controls: "Graph view controls",
     panHint: "Drag the map to pan. Use the mouse wheel or controls to zoom.",
+    search: "Search graph",
+    searchPlaceholder: "Search concepts",
+    searchResults: "Search results",
+    noSearchResults: "No matching concepts",
     zoomIn: "Zoom in",
     zoomOut: "Zoom out",
     resetView: "Reset view",
@@ -67,6 +77,10 @@ const interactionCopy = {
   zh: {
     controls: "图谱视图控制",
     panHint: "拖动画布可平移。使用鼠标滚轮或按钮缩放。",
+    search: "搜索图谱",
+    searchPlaceholder: "搜索概念",
+    searchResults: "搜索结果",
+    noSearchResults: "没有匹配概念",
     zoomIn: "放大",
     zoomOut: "缩小",
     resetView: "重置视图",
@@ -150,9 +164,227 @@ function nodeDepths(nodes: GraphNode[], edges: GraphEdge[]): Map<string, number>
   return depths;
 }
 
-function computeLayout(nodes: GraphNode[], edges: GraphEdge[], lang: Locale): GraphLayout {
+function edgeKey(edge: GraphEdge): string {
+  return `${edge.from}:${edge.to}:${edge.type}`;
+}
+
+function median(values: number[]): number {
+  const ordered = [...values].sort((a, b) => a - b);
+  const midpoint = Math.floor(ordered.length / 2);
+  return ordered.length % 2 === 0 ? (ordered[midpoint - 1] + ordered[midpoint]) / 2 : ordered[midpoint];
+}
+
+function neighborOrder(
+  node: GraphNode,
+  depth: number,
+  depths: Map<string, number>,
+  edges: GraphEdge[],
+  columnOrder: Map<string, number>,
+  direction: "forward" | "backward"
+): number {
+  const neighbors = edges
+    .filter((edge) => {
+      if (direction === "forward") return edge.to === node.id && (depths.get(edge.from) ?? 0) < depth;
+      return edge.from === node.id && (depths.get(edge.to) ?? 0) > depth;
+    })
+    .map((edge) => columnOrder.get(direction === "forward" ? edge.from : edge.to))
+    .filter((order): order is number => order !== undefined);
+
+  return neighbors.length ? median(neighbors) : Number.POSITIVE_INFINITY;
+}
+
+function sortColumnByNeighbors(
+  column: GraphNode[],
+  depth: number,
+  depths: Map<string, number>,
+  edges: GraphEdge[],
+  columnOrder: Map<string, number>,
+  direction: "forward" | "backward"
+): GraphNode[] {
+  return [...column].sort((a, b) => {
+    const neighborOrderDelta =
+      neighborOrder(a, depth, depths, edges, columnOrder, direction) -
+      neighborOrder(b, depth, depths, edges, columnOrder, direction);
+    const rankOrder = conceptTypeRank[a.conceptType] - conceptTypeRank[b.conceptType];
+    return neighborOrderDelta || rankOrder || a.id.localeCompare(b.id);
+  });
+}
+
+function updateColumnOrder(orderedColumns: Map<number, GraphNode[]>): Map<string, number> {
+  const order = new Map<string, number>();
+
+  for (const column of orderedColumns.values()) {
+    column.forEach((node, index) => order.set(node.id, index));
+  }
+
+  return order;
+}
+
+function normalizeVector(x: number, y: number): { x: number; y: number } {
+  const length = Math.hypot(x, y);
+  return length > 0.001 ? { x: x / length, y: y / length } : { x: 0, y: 1 };
+}
+
+function closestPointOnSegment(
+  point: Pick<LayoutNode, "x" | "y">,
+  start: Pick<LayoutNode, "x" | "y">,
+  end: Pick<LayoutNode, "x" | "y">
+): { distance: number; t: number; x: number; y: number } {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  const t = lengthSquared > 0 ? clamp(((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared, 0, 1) : 0;
+  const x = start.x + dx * t;
+  const y = start.y + dy * t;
+
+  return {
+    distance: Math.hypot(point.x - x, point.y - y),
+    t,
+    x,
+    y
+  };
+}
+
+function segmentsIntersect(
+  aStart: Pick<LayoutNode, "x" | "y">,
+  aEnd: Pick<LayoutNode, "x" | "y">,
+  bStart: Pick<LayoutNode, "x" | "y">,
+  bEnd: Pick<LayoutNode, "x" | "y">
+): boolean {
+  const denominator = (aEnd.x - aStart.x) * (bEnd.y - bStart.y) - (aEnd.y - aStart.y) * (bEnd.x - bStart.x);
+  if (Math.abs(denominator) < 0.001) return false;
+
+  const ua = ((bStart.x - aStart.x) * (bEnd.y - bStart.y) - (bStart.y - aStart.y) * (bEnd.x - bStart.x)) / denominator;
+  const ub = ((bStart.x - aStart.x) * (aEnd.y - aStart.y) - (bStart.y - aStart.y) * (aEnd.x - aStart.x)) / denominator;
+
+  return ua > 0.04 && ua < 0.96 && ub > 0.04 && ub < 0.96;
+}
+
+function segmentDistance(a: LayoutEdge, b: LayoutEdge): number {
+  return Math.min(
+    closestPointOnSegment(a.fromNode, b.fromNode, b.toNode).distance,
+    closestPointOnSegment(a.toNode, b.fromNode, b.toNode).distance,
+    closestPointOnSegment(b.fromNode, a.fromNode, a.toNode).distance,
+    closestPointOnSegment(b.toNode, a.fromNode, a.toNode).distance
+  );
+}
+
+function segmentIntersectsNode(
+  start: Pick<LayoutNode, "x" | "y">,
+  end: Pick<LayoutNode, "x" | "y">,
+  node: Pick<LayoutNode, "height" | "width" | "x" | "y">,
+  padding = 0
+): boolean {
+  const left = node.x - node.width / 2 - padding;
+  const right = node.x + node.width / 2 + padding;
+  const top = node.y - node.height / 2 - padding;
+  const bottom = node.y + node.height / 2 + padding;
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  let minT = 0;
+  let maxT = 1;
+
+  for (const [axisDelta, axisDistance] of [
+    [-dx, start.x - left],
+    [dx, right - start.x],
+    [-dy, start.y - top],
+    [dy, bottom - start.y]
+  ]) {
+    if (Math.abs(axisDelta) < 0.001) {
+      if (axisDistance < 0) return false;
+      continue;
+    }
+
+    const nextT = axisDistance / axisDelta;
+    if (axisDelta < 0) {
+      if (nextT > maxT) return false;
+      minT = Math.max(minT, nextT);
+    } else {
+      if (nextT < minT) return false;
+      maxT = Math.min(maxT, nextT);
+    }
+  }
+
+  return maxT > 0.08 && minT < 0.92;
+}
+
+function sharedEndpoint(a: LayoutEdge, b: LayoutEdge): string | null {
+  const aIds = [a.from, a.to];
+  const bIds = new Set([b.from, b.to]);
+  return aIds.find((id) => bIds.has(id)) ?? null;
+}
+
+function separateColumnNodes(nodes: LayoutNode[], minY: number, maxY: number): void {
+  const ordered = [...nodes].sort((a, b) => a.y - b.y || a.id.localeCompare(b.id));
+  if (ordered.length < 2) return;
+
+  for (let index = 1; index < ordered.length; index += 1) {
+    const previous = ordered[index - 1];
+    const current = ordered[index];
+    const minimumGap = (previous.height + current.height) / 2 + 32;
+    if (current.y - previous.y < minimumGap) {
+      current.y = previous.y + minimumGap;
+    }
+  }
+
+  const last = ordered[ordered.length - 1];
+  const overflowBottom = last.y + last.height / 2 - maxY;
+  if (overflowBottom > 0) {
+    for (const node of ordered) node.y -= overflowBottom;
+  }
+
+  const overflowTop = minY - (ordered[0].y - ordered[0].height / 2);
+  if (overflowTop > 0) {
+    for (const node of ordered) node.y += overflowTop;
+  }
+}
+
+function routeEdgeCurves(edges: LayoutEdge[], nodes: LayoutNode[]): void {
+  for (const edge of edges) {
+    const sign = stableHash(edgeKey(edge)) % 2 === 0 ? 1 : -1;
+    const obstacleCount = nodes.filter(
+      (node) =>
+        node.id !== edge.from &&
+        node.id !== edge.to &&
+        segmentIntersectsNode(edge.fromNode, edge.toNode, node, 12)
+    ).length;
+
+    edge.curveOffset = obstacleCount > 0 ? sign * Math.min(172, 72 + obstacleCount * 18) : 0;
+  }
+
+  for (let aIndex = 0; aIndex < edges.length; aIndex += 1) {
+    for (let bIndex = aIndex + 1; bIndex < edges.length; bIndex += 1) {
+      const a = edges[aIndex];
+      const b = edges[bIndex];
+      const shared = sharedEndpoint(a, b);
+      const aDx = a.toNode.x - a.fromNode.x;
+      const aDy = a.toNode.y - a.fromNode.y;
+      const bDx = b.toNode.x - b.fromNode.x;
+      const bDy = b.toNode.y - b.fromNode.y;
+      const aLength = Math.hypot(aDx, aDy) || 1;
+      const bLength = Math.hypot(bDx, bDy) || 1;
+      const cross = (aDx / aLength) * (bDy / bLength) - (aDy / aLength) * (bDx / bLength);
+      const areCloseParallel = Math.abs(cross) < 0.12 && segmentDistance(a, b) < EDGE_EDGE_CLEARANCE;
+      const doCross = !shared && segmentsIntersect(a.fromNode, a.toNode, b.fromNode, b.toNode);
+
+      if (!areCloseParallel && !doCross) continue;
+
+      const sign = edgeKey(a).localeCompare(edgeKey(b)) <= 0 ? -1 : 1;
+      const pressure = doCross ? 24 : 16;
+      a.curveOffset += sign * pressure;
+      b.curveOffset -= sign * pressure;
+    }
+  }
+
+  for (const edge of edges) {
+    edge.curveOffset = clamp(edge.curveOffset, -190, 190);
+    if (Math.abs(edge.curveOffset) < 8) edge.curveOffset = 0;
+  }
+}
+
+export function computeLayout(nodes: GraphNode[], edges: GraphEdge[], lang: Locale): GraphLayout {
   const sortedNodes = [...nodes].sort((a, b) => a.id.localeCompare(b.id));
-  const sortedEdges = [...edges].sort((a, b) => `${a.from}:${a.to}:${a.type}`.localeCompare(`${b.from}:${b.to}:${b.type}`));
+  const sortedEdges = [...edges].sort((a, b) => edgeKey(a).localeCompare(edgeKey(b)));
   const depths = nodeDepths(sortedNodes, sortedEdges);
   const columns = new Map<number, GraphNode[]>();
 
@@ -165,26 +397,32 @@ function computeLayout(nodes: GraphNode[], edges: GraphEdge[], lang: Locale): Gr
 
   const maxDepth = Math.max(0, ...Array.from(columns.keys()));
   const orderedColumns = new Map<number, GraphNode[]>();
-  const columnOrder = new Map<string, number>();
 
   for (let depth = 0; depth <= maxDepth; depth += 1) {
-    const column = [...(columns.get(depth) ?? [])];
-    const orderedColumn = column.sort((a, b) => {
-      const aPredecessors = sortedEdges.filter((edge) => edge.to === a.id && (depths.get(edge.from) ?? 0) < depth);
-      const bPredecessors = sortedEdges.filter((edge) => edge.to === b.id && (depths.get(edge.from) ?? 0) < depth);
-      const aBarycenter = aPredecessors.length
-        ? aPredecessors.reduce((sum, edge) => sum + (columnOrder.get(edge.from) ?? 0), 0) / aPredecessors.length
-        : Number.POSITIVE_INFINITY;
-      const bBarycenter = bPredecessors.length
-        ? bPredecessors.reduce((sum, edge) => sum + (columnOrder.get(edge.from) ?? 0), 0) / bPredecessors.length
-        : Number.POSITIVE_INFINITY;
-      const barycenterOrder = aBarycenter - bBarycenter;
+    const orderedColumn = [...(columns.get(depth) ?? [])].sort((a, b) => {
       const rankOrder = conceptTypeRank[a.conceptType] - conceptTypeRank[b.conceptType];
-      return barycenterOrder || rankOrder || a.id.localeCompare(b.id);
+      return rankOrder || a.id.localeCompare(b.id);
     });
-
-    orderedColumn.forEach((node, index) => columnOrder.set(node.id, index));
     orderedColumns.set(depth, orderedColumn);
+  }
+
+  let columnOrder = updateColumnOrder(orderedColumns);
+  for (let sweep = 0; sweep < ORDERING_SWEEPS; sweep += 1) {
+    for (let depth = 1; depth <= maxDepth; depth += 1) {
+      orderedColumns.set(
+        depth,
+        sortColumnByNeighbors(orderedColumns.get(depth) ?? [], depth, depths, sortedEdges, columnOrder, "forward")
+      );
+      columnOrder = updateColumnOrder(orderedColumns);
+    }
+
+    for (let depth = maxDepth - 1; depth >= 0; depth -= 1) {
+      orderedColumns.set(
+        depth,
+        sortColumnByNeighbors(orderedColumns.get(depth) ?? [], depth, depths, sortedEdges, columnOrder, "backward")
+      );
+      columnOrder = updateColumnOrder(orderedColumns);
+    }
   }
 
   const maxColumnSize = Math.max(1, ...Array.from(orderedColumns.values()).map((column) => column.length));
@@ -213,13 +451,13 @@ function computeLayout(nodes: GraphNode[], edges: GraphEdge[], lang: Locale): Gr
     .map((edge) => {
       const fromNode = sizedNodes.get(edge.from);
       const toNode = sizedNodes.get(edge.to);
-      return fromNode && toNode ? { ...edge, fromNode, labelWidth: edge.type.length * 7 + 18, toNode } : null;
+      return fromNode && toNode ? { ...edge, curveOffset: 0, fromNode, labelWidth: edge.type.length * 7 + 18, toNode } : null;
     })
     .filter((edge): edge is LayoutEdge => edge !== null);
 
-  for (let iteration = 0; iteration < 180; iteration += 1) {
+  for (let iteration = 0; iteration < FORCE_ITERATIONS; iteration += 1) {
     const forces = new Map(layoutNodes.map((node) => [node.id, { x: 0, y: 0 }]));
-    const temperature = 1 - iteration / 180;
+    const temperature = 1 - iteration / FORCE_ITERATIONS;
 
     for (let aIndex = 0; aIndex < layoutNodes.length; aIndex += 1) {
       for (let bIndex = aIndex + 1; bIndex < layoutNodes.length; bIndex += 1) {
@@ -254,6 +492,98 @@ function computeLayout(nodes: GraphNode[], edges: GraphEdge[], lang: Locale): Gr
     }
 
     for (const edge of edgePairs) {
+      for (const node of layoutNodes) {
+        if (node.id === edge.from || node.id === edge.to) continue;
+
+        const closest = closestPointOnSegment(node, edge.fromNode, edge.toNode);
+        const clearance = node.height / 2 + EDGE_NODE_CLEARANCE;
+        if (closest.t <= 0.08 || closest.t >= 0.92 || closest.distance >= clearance) continue;
+
+        const fallbackSign = stableHash(`${edgeKey(edge)}:${node.id}`) % 2 === 0 ? 1 : -1;
+        const fallback = normalizeVector(
+          -(edge.toNode.y - edge.fromNode.y) * fallbackSign,
+          (edge.toNode.x - edge.fromNode.x) * fallbackSign
+        );
+        const direction =
+          closest.distance > 0.001 ? normalizeVector(node.x - closest.x, node.y - closest.y) : fallback;
+        const pressure = (clearance - closest.distance) * 0.024;
+        const force = forces.get(node.id);
+        const fromForce = forces.get(edge.from);
+        const toForce = forces.get(edge.to);
+
+        if (force) {
+          force.x += direction.x * pressure;
+          force.y += direction.y * pressure;
+        }
+        if (fromForce && toForce) {
+          fromForce.y -= direction.y * pressure * 0.16;
+          toForce.y -= direction.y * pressure * 0.16;
+        }
+      }
+    }
+
+    for (let aIndex = 0; aIndex < edgePairs.length; aIndex += 1) {
+      for (let bIndex = aIndex + 1; bIndex < edgePairs.length; bIndex += 1) {
+        const a = edgePairs[aIndex];
+        const b = edgePairs[bIndex];
+        const shared = sharedEndpoint(a, b);
+        const aDx = a.toNode.x - a.fromNode.x;
+        const aDy = a.toNode.y - a.fromNode.y;
+        const bDx = b.toNode.x - b.fromNode.x;
+        const bDy = b.toNode.y - b.fromNode.y;
+        const aLength = Math.hypot(aDx, aDy) || 1;
+        const bLength = Math.hypot(bDx, bDy) || 1;
+        const cross = (aDx / aLength) * (bDy / bLength) - (aDy / aLength) * (bDx / bLength);
+
+        if (!shared && segmentsIntersect(a.fromNode, a.toNode, b.fromNode, b.toNode)) {
+          const sourceDelta = a.fromNode.y - b.fromNode.y;
+          const targetDelta = a.toNode.y - b.toNode.y;
+          const sourceSign = sourceDelta === 0 ? (edgeKey(a).localeCompare(edgeKey(b)) <= 0 ? -1 : 1) : Math.sign(sourceDelta);
+          const targetSign = targetDelta === 0 ? sourceSign : Math.sign(targetDelta);
+          const crossingPressure = 1.8;
+          const aFromForce = forces.get(a.from);
+          const aToForce = forces.get(a.to);
+          const bFromForce = forces.get(b.from);
+          const bToForce = forces.get(b.to);
+
+          if (aToForce && bToForce) {
+            aToForce.y += sourceSign * crossingPressure;
+            bToForce.y -= sourceSign * crossingPressure;
+          }
+          if (aFromForce && bFromForce) {
+            aFromForce.y += targetSign * crossingPressure;
+            bFromForce.y -= targetSign * crossingPressure;
+          }
+        }
+
+        if (Math.abs(cross) < 0.12 && segmentDistance(a, b) < EDGE_EDGE_CLEARANCE) {
+          const orderSign = edgeKey(a).localeCompare(edgeKey(b)) <= 0 ? -1 : 1;
+          const aNormal = normalizeVector(-aDy * orderSign, aDx * orderSign);
+          const bNormal = normalizeVector(bDy * orderSign, -bDx * orderSign);
+          const separationPressure = (EDGE_EDGE_CLEARANCE - segmentDistance(a, b)) * 0.018;
+
+          for (const id of [a.from, a.to]) {
+            if (id === shared) continue;
+            const force = forces.get(id);
+            if (force) {
+              force.x += aNormal.x * separationPressure;
+              force.y += aNormal.y * separationPressure;
+            }
+          }
+
+          for (const id of [b.from, b.to]) {
+            if (id === shared) continue;
+            const force = forces.get(id);
+            if (force) {
+              force.x += bNormal.x * separationPressure;
+              force.y += bNormal.y * separationPressure;
+            }
+          }
+        }
+      }
+    }
+
+    for (const edge of edgePairs) {
       const dx = edge.toNode.x - edge.fromNode.x;
       const dy = edge.toNode.y - edge.fromNode.y;
       const distance = Math.hypot(dx, dy) || 1;
@@ -278,11 +608,25 @@ function computeLayout(nodes: GraphNode[], edges: GraphEdge[], lang: Locale): Gr
       const force = forces.get(node.id);
       if (!force) continue;
 
-      force.x += (targetX - node.x) * 0.012;
-      node.x = clamp(node.x + force.x * temperature, LAYOUT_PADDING, width - LAYOUT_PADDING);
+      force.x += (targetX - node.x) * 0.035;
+      node.x = clamp(
+        node.x + force.x * temperature,
+        Math.max(LAYOUT_PADDING, targetX - COLUMN_X_DRIFT),
+        Math.min(width - LAYOUT_PADDING, targetX + COLUMN_X_DRIFT)
+      );
       node.y = clamp(node.y + force.y * temperature, LAYOUT_PADDING, height - LAYOUT_PADDING);
     }
   }
+
+  for (let depth = 0; depth <= maxDepth; depth += 1) {
+    separateColumnNodes(
+      layoutNodes.filter((node) => (depths.get(node.id) ?? 0) === depth),
+      LAYOUT_PADDING,
+      height - LAYOUT_PADDING
+    );
+  }
+
+  routeEdgeCurves(edgePairs, layoutNodes);
 
   const minX = Math.min(...layoutNodes.map((node) => node.x - node.width / 2));
   const maxX = Math.max(...layoutNodes.map((node) => node.x + node.width / 2));
@@ -330,7 +674,35 @@ function edgePoint(from: LayoutNode, to: LayoutNode): { x: number; y: number } {
   };
 }
 
+function curveControlPoint(
+  start: Pick<LayoutNode, "x" | "y">,
+  end: Pick<LayoutNode, "x" | "y">,
+  offset: number
+): { x: number; y: number } {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const normal = normalizeVector(-dy, dx);
+
+  return {
+    x: (start.x + end.x) / 2 + normal.x * offset,
+    y: (start.y + end.y) / 2 + normal.y * offset
+  };
+}
+
+function curveMidpoint(
+  start: Pick<LayoutNode, "x" | "y">,
+  control: Pick<LayoutNode, "x" | "y">,
+  end: Pick<LayoutNode, "x" | "y">
+): { x: number; y: number } {
+  return {
+    x: start.x * 0.25 + control.x * 0.5 + end.x * 0.25,
+    y: start.y * 0.25 + control.y * 0.5 + end.y * 0.25
+  };
+}
+
 export default function GraphExplorer({ lang, nodes, edges, availableNodeIds }: Props) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedId, setSelectedId] = useState(nodes[0]?.id ?? "");
   const [viewport, setViewport] = useState<Viewport>({ scale: 1, x: 0, y: 0 });
   const dragRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
@@ -341,6 +713,18 @@ export default function GraphExplorer({ lang, nodes, edges, availableNodeIds }: 
   const layout = useMemo(() => computeLayout(nodes, edges, lang), [edges, lang, nodes]);
   const selectedEdges = edges.filter((edge) => edge.from === selectedId || edge.to === selectedId);
   const copy = interactionCopy[lang];
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
+  const searchMatches = useMemo(() => {
+    if (!normalizedSearch) return [];
+
+    return nodes
+      .filter((node) => {
+        const label = node.label[lang].toLocaleLowerCase();
+        return label.includes(normalizedSearch) || node.id.toLocaleLowerCase().includes(normalizedSearch);
+      })
+      .sort((a, b) => a.label[lang].localeCompare(b.label[lang]) || a.id.localeCompare(b.id));
+  }, [lang, nodes, normalizedSearch]);
+  const searchMatchIds = useMemo(() => new Set(searchMatches.map((node) => node.id)), [searchMatches]);
 
   useEffect(() => {
     setViewport(fitViewport(layout));
@@ -435,6 +819,16 @@ export default function GraphExplorer({ lang, nodes, edges, availableNodeIds }: 
 
       <div className="graph-viewbar">
         <p>{copy.panHint}</p>
+        <div className="graph-search">
+          <label htmlFor="graph-search-input">{copy.search}</label>
+          <input
+            id="graph-search-input"
+            type="search"
+            value={searchQuery}
+            placeholder={copy.searchPlaceholder}
+            onChange={(event) => setSearchQuery(event.currentTarget.value)}
+          />
+        </div>
         <div className="graph-view-controls" aria-label={copy.controls}>
           <button type="button" onClick={() => zoomAt(viewport.scale * 1.18)} aria-label={copy.zoomIn}>
             +
@@ -448,6 +842,21 @@ export default function GraphExplorer({ lang, nodes, edges, availableNodeIds }: 
           </button>
         </div>
       </div>
+
+      {normalizedSearch ? (
+        <div className="graph-search-results" aria-label={copy.searchResults} aria-live="polite">
+          {searchMatches.length ? (
+            searchMatches.slice(0, 8).map((node) => (
+              <button type="button" key={node.id} onClick={() => setSelectedId(node.id)}>
+                <span>{node.label[lang]}</span>
+                <small>{node.conceptType}</small>
+              </button>
+            ))
+          ) : (
+            <p>{copy.noSearchResults}</p>
+          )}
+        </div>
+      ) : null}
 
       <svg
         ref={svgRef}
@@ -470,19 +879,23 @@ export default function GraphExplorer({ lang, nodes, edges, availableNodeIds }: 
           {layout.edges.map((edge) => {
             const start = edgePoint(edge.fromNode, edge.toNode);
             const end = edgePoint(edge.toNode, edge.fromNode);
-            const labelX = (start.x + end.x) / 2;
-            const labelY = (start.y + end.y) / 2;
+            const control = curveControlPoint(start, end, edge.curveOffset);
+            const label = curveMidpoint(start, control, end);
+            const isActive = hoveredId ? edge.from === hoveredId || edge.to === hoveredId : false;
+            const isDimmed = Boolean(hoveredId && !isActive);
             return (
               <g key={`${edge.from}-${edge.to}-${edge.type}`}>
-                <line
-                  className={`edge edge-${edge.type}`}
-                  x1={start.x}
-                  y1={start.y}
-                  x2={end.x}
-                  y2={end.y}
+                <path
+                  className={["edge", `edge-${edge.type}`, isActive ? "active" : "", isDimmed ? "dimmed" : ""]
+                    .filter(Boolean)
+                    .join(" ")}
+                  d={`M ${start.x} ${start.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`}
                   markerEnd="url(#arrow)"
                 />
-                <g className="edge-label" transform={`translate(${labelX}, ${labelY})`}>
+                <g
+                  className={["edge-label", isActive ? "active" : "", isDimmed ? "dimmed" : ""].filter(Boolean).join(" ")}
+                  transform={`translate(${label.x}, ${label.y})`}
+                >
                   <rect x={-edge.labelWidth / 2} y="-12" width={edge.labelWidth} height="20" rx="6" />
                   <text textAnchor="middle" y="3">
                     {edge.type}
@@ -493,6 +906,8 @@ export default function GraphExplorer({ lang, nodes, edges, availableNodeIds }: 
           })}
           {layout.nodes.map((node) => {
             const isSelected = node.id === selectedId;
+            const isHovered = node.id === hoveredId;
+            const isSearchMatch = searchMatchIds.has(node.id);
             const hasPage = availableSet.has(node.id);
             return (
               <g
@@ -503,7 +918,13 @@ export default function GraphExplorer({ lang, nodes, edges, availableNodeIds }: 
                 tabIndex={0}
                 aria-label={`${node.label[lang]} ${node.status}`}
                 onClick={() => goToNode(node.id)}
-                onFocus={() => setSelectedId(node.id)}
+                onMouseEnter={() => setHoveredId(node.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                onFocus={() => {
+                  setSelectedId(node.id);
+                  setHoveredId(node.id);
+                }}
+                onBlur={() => setHoveredId(null)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
@@ -512,7 +933,13 @@ export default function GraphExplorer({ lang, nodes, edges, availableNodeIds }: 
                 }}
               >
                 <rect
-                  className={isSelected ? "selected" : ""}
+                  className={[
+                    isSelected ? "selected" : "",
+                    isHovered ? "hovered" : "",
+                    isSearchMatch ? "search-match" : ""
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                   x={-node.width / 2}
                   y={-node.height / 2}
                   width={node.width}

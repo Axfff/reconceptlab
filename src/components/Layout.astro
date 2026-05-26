@@ -392,25 +392,36 @@ const alternateHref = (locale: Locale) => absoluteUrl(pathname.replace(`/${lang}
     width: 100%;
   }
 
-  .graph-explorer line {
+  .graph-explorer .edge {
+    fill: none;
     pointer-events: none;
     stroke: var(--rcl-primary);
     stroke-width: 2;
+    transition: opacity 160ms ease, stroke-width 160ms ease;
   }
 
-  .graph-explorer line.edge-uses,
-  .graph-explorer line.edge-implemented-by,
-  .graph-explorer line.edge-applied-in {
+  .graph-explorer .edge.active {
+    opacity: 1;
+    stroke-width: 4;
+  }
+
+  .graph-explorer .edge.dimmed {
+    opacity: 0.16;
+  }
+
+  .graph-explorer .edge-uses,
+  .graph-explorer .edge-implemented-by,
+  .graph-explorer .edge-applied-in {
     stroke: var(--rcl-accent);
   }
 
-  .graph-explorer line.edge-motivates,
-  .graph-explorer line.edge-fails-when {
+  .graph-explorer .edge-motivates,
+  .graph-explorer .edge-fails-when {
     stroke: var(--rcl-secondary);
   }
 
-  .graph-explorer line.edge-contrasts,
-  .graph-explorer line.edge-special-case {
+  .graph-explorer .edge-contrasts,
+  .graph-explorer .edge-special-case {
     stroke-dasharray: 7 6;
   }
 
@@ -435,6 +446,81 @@ const alternateHref = (locale: Locale) => absoluteUrl(pathname.replace(`/${lang}
   }
 
   .graph-viewbar p {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  .graph-search {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+    min-width: min(260px, 100%);
+  }
+
+  .graph-search label {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 850;
+    white-space: nowrap;
+  }
+
+  .graph-search input {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--rcl-radius-sm);
+    color: var(--text);
+    font: inherit;
+    height: 36px;
+    min-width: 0;
+    padding: 0 10px;
+    width: 180px;
+  }
+
+  .graph-search input:focus {
+    border-color: var(--rcl-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--rcl-primary) 18%, transparent);
+    outline: none;
+  }
+
+  .graph-search-results {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .graph-search-results button {
+    align-items: center;
+    background: color-mix(in srgb, var(--rcl-success) 10%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--rcl-success) 36%, var(--line));
+    border-radius: var(--rcl-radius-sm);
+    color: var(--text);
+    cursor: pointer;
+    display: inline-flex;
+    font: inherit;
+    gap: 8px;
+    min-height: 34px;
+    padding: 6px 10px;
+  }
+
+  .graph-search-results button:hover,
+  .graph-search-results button:focus-visible {
+    border-color: var(--rcl-success);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--rcl-success) 18%, transparent);
+    outline: none;
+  }
+
+  .graph-search-results small {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .graph-search-results p {
     color: var(--muted);
     font-size: 0.9rem;
     margin: 0;
@@ -500,6 +586,23 @@ const alternateHref = (locale: Locale) => absoluteUrl(pathname.replace(`/${lang}
     text-transform: uppercase;
   }
 
+  .edge-label {
+    transition: opacity 160ms ease;
+  }
+
+  .edge-label.active rect {
+    fill: color-mix(in srgb, var(--rcl-primary) 12%, var(--surface));
+    stroke: var(--rcl-primary);
+  }
+
+  .edge-label.active text {
+    fill: var(--rcl-primary-strong);
+  }
+
+  .edge-label.dimmed {
+    opacity: 0.18;
+  }
+
   .svg-node {
     cursor: pointer;
   }
@@ -508,6 +611,7 @@ const alternateHref = (locale: Locale) => absoluteUrl(pathname.replace(`/${lang}
     fill: var(--surface-muted);
     stroke: var(--line);
     stroke-width: 2;
+    transition: fill 160ms ease, stroke 160ms ease, stroke-width 160ms ease;
   }
 
   .svg-node rect.selected,
@@ -517,12 +621,44 @@ const alternateHref = (locale: Locale) => absoluteUrl(pathname.replace(`/${lang}
     stroke-width: 3;
   }
 
+  .svg-node rect.search-match {
+    fill: color-mix(in srgb, var(--rcl-success) 18%, var(--surface));
+    stroke: var(--rcl-success);
+    stroke-width: 4;
+  }
+
+  .svg-node rect.hovered {
+    stroke: var(--rcl-primary);
+    stroke-width: 4;
+  }
+
   .svg-node:focus {
     outline: none;
   }
 
   .svg-node:hover rect {
     stroke: var(--rcl-primary);
+  }
+
+  @media (max-width: 760px) {
+    .graph-viewbar {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .graph-search {
+      margin-left: 0;
+      width: 100%;
+    }
+
+    .graph-search input {
+      flex: 1;
+      width: auto;
+    }
+
+    .graph-view-controls {
+      justify-content: flex-start;
+    }
   }
 
   .graph-explorer .node-title {
